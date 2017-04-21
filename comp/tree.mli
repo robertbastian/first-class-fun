@@ -14,7 +14,7 @@ type expr =
   | Variable of name
   | Monop of Keiko.op * expr
   | Binop of Keiko.op * expr * expr
-  | Call of name * expr list
+  | Call of expr * expr list
 
 type stmt =
     Skip

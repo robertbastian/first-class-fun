@@ -15,7 +15,7 @@ type expr =
   | Variable of name
   | Monop of Keiko.op * expr
   | Binop of Keiko.op * expr * expr
-  | Call of name * expr list
+  | Call of expr * expr list
 
 type stmt =
     Skip
@@ -83,8 +83,8 @@ let rec fExpr =
         fMeta "Monop_($, $)" [fStr (Keiko.op_name w); fExpr e1]
     | Binop (w, e1, e2) -> 
         fMeta "Binop_($, $, $)" [fStr (Keiko.op_name w); fExpr e1; fExpr e2]
-    | Call (x, es) ->
-        fMeta "Call_($, $)" [fName x; fList(fExpr) es]
+    | Call (e, es) ->
+        fMeta "Call_($, $)" [fExpr e; fList(fExpr) es]
 
 let rec fStmt = 
   function

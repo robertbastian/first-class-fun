@@ -68,18 +68,17 @@ let rec check_expr env =
               else BoolType
           | _ -> sem_error "unknown binop" [] (* plusa? *)
         end
-    | Call (p, args) ->
-        let d = lookup_def env p in
-        match d.d_type with
+    | Call (e, args) ->
+        match check_expr env e with
             FunType (atypes, rtype) ->
               if List.length args <> List.length atypes then
-                sem_error "procedure $ needs $ arguments" 
-                  [fStr d.d_tag; fNum (List.length atypes)]
+                sem_error "procedure needs $ arguments" 
+                  [fNum (List.length atypes)]
               else if List.exists2 (<>) atypes (List.map (check_expr env) args) then
                 sem_error "argument type mismatch" []
               else rtype  
-          | _ -> sem_error "variable $ with type $ not callable" 
-            [fStr p.x_name; fType d.d_type]
+          | t -> sem_error "expression with type $ not callable" 
+            [fType t]
 
 (* |check_stmt| -- check and annotate a statement *)
 let rec check_stmt rtype env =

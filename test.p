@@ -1,5 +1,5 @@
-proc f(x,y);
-  proc g(z);
+proc f(x: num, y: num): (num)->num;
+  proc g(z: num): num;
   begin
     return (z+x)
   end;

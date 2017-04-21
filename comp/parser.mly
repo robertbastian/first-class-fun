@@ -95,7 +95,7 @@ factor :
   | TRUE                                { Bool true }
   | FALSE                               { Bool false }
   | name                                { Variable $1 }
-  | name actuals                        { Call ($1, $2) }
+  | factor actuals                      { Call ($1, $2) }
   | MONOP factor                        { Monop ($1, $2) }
   | MINUS factor                        { Monop (Uminus, $2) }
   | LPAR expr RPAR                      { $2 } ;
