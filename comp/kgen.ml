@@ -52,18 +52,9 @@ let rec gen_expr =
         SEQ [gen_expr e1; MONOP w]
     | Binop (w, e1, e2) ->
         SEQ [gen_expr e1; gen_expr e2; BINOP w]
-    | Call (e, args) -> match e with
-        Variable p -> let d = get_def p in 
-          let frame = 
-            begin 
-              match d.d_kind with 
-                ProcDef -> SEQ [find_sp d.d_level; GLOBAL d.d_lab]
-              | VarDef -> SEQ [gen_addr d; LOADW; UNPACK]
-            end 
-          in
-          SEQ[LINE p.x_line; SEQ (List.rev (List.map gen_expr args)); frame; PCALLW (List.length args)]
-      | Call (e, args) -> failwith "not yet implemented"
-      | _ -> failwith "typecheck failure"
+    | Call (e, args) -> 
+        let frame = SEQ [gen_expr e; UNPACK] in
+        SEQ[SEQ (List.rev (List.map gen_expr args)); frame; PCALLW (List.length args)]
 
 (* |gen_cond| -- generate code for short-circuit condition *)
 let rec gen_cond tlab flab e =
