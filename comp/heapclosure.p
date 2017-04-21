@@ -9,10 +9,10 @@ begin
 end;
 
 begin
-  print f(1,2)(5)
+  print f(1,2)(5); newline;
 end.
 
 (*<<
-3
-6
+ 3
+ 6
 >>*)
