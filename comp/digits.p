@@ -1,17 +1,17 @@
 (* lab3/digits.p *)
 
-var q;
+var q: num;
 
-proc search(k, n, avail);
+proc search(k: num, n: num, avail: (num)->bool): num;
 
-  var d, nn;
+  var d: num, nn: num;
 
-  proc avail1(x);
+  proc avail1(x: num): bool;
   begin
     if x <> d then
       return avail(x)
     else
-      return 0
+      return false
     end
   end;
 
@@ -31,9 +31,9 @@ begin
   return 0
 end;
 
-proc all(x);
+proc all(x: num): bool;
 begin
-  return 1
+  return true
 end;
 
 begin

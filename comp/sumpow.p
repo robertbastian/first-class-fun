@@ -1,10 +1,10 @@
 (* lab3/sumpow.p *)
 
-proc sumpow(n, k);
-  var m, s;
+proc sumpow(n: num, k: num): num;
+  var m: num, s: num;
 
-  proc pow(p);
-    var j, q;
+  proc pow(p: num): num;
+    var j: num, q: num;
   begin
     j := 0; q := 1;
     while j < k do 

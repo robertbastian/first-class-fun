@@ -1,4 +1,4 @@
-proc noret();
+proc noret(): bool;
 begin
 end;
 

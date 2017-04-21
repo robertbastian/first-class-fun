@@ -1,6 +1,6 @@
 (* lab3/fac.p *)
 
-proc fac(i);
+proc fac(i: num): num;
 begin
   if i = 0 then
     return 1

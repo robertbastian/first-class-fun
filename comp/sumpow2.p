@@ -1,7 +1,7 @@
 (* lab3/sumpow2.p *)
 
-proc sum(n, f);
-  var m, s;
+proc sum(n: num, f: (num)->num): num;
+  var m: num, s: num;
 begin
   m := 0; s := 0;
   while m < n do 
@@ -11,10 +11,10 @@ begin
   return s
 end;
 
-proc sumpow(n, k);
+proc sumpow(n: num, k: num): num;
 
-  proc pow(p);
-    var j, q;
+  proc pow(p: num): num;
+    var j: num, q: num;
   begin
     j := 0; q := 1;
     while j < k do 

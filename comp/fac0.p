@@ -1,8 +1,8 @@
 (* lab3/fac0.p *)
 
-var n, f;
+var n: num, f: num;
 
-proc fac();
+proc fac(): num;
 begin
   if n = 0 then
     return f;

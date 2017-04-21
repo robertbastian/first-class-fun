@@ -1,6 +1,6 @@
 (* lab3/gcd.p *)
 
-var x, y;
+var x: num, y: num;
 
 begin
   x := 3 * 37; y := 5 * 37;
