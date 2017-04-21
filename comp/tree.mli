@@ -10,6 +10,7 @@ type name =
 
 type expr = 
     Number of int
+  | Bool of bool
   | Variable of name
   | Monop of Keiko.op * expr
   | Binop of Keiko.op * expr * expr
@@ -25,9 +26,9 @@ type stmt =
   | Print of expr
   | Newline
 
-type block = Block of ident list * proc list * stmt
+type block = Block of (ident * typ) list * proc list * stmt
 
-and proc = Proc of name * ident list * block
+and proc = Proc of name * (ident * typ) list * block * typ
 
 type program = Program of block
 
@@ -42,3 +43,5 @@ val get_def : name -> def
 
 (* |print_tree| -- pretty-print a tree *)
 val print_tree : out_channel -> program -> unit
+
+val fType : typ -> Print.arg

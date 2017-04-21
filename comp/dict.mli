@@ -6,17 +6,23 @@ type codelab = int
 
 val label : unit -> codelab
 
+type typ = 
+    BoolType
+  | NumType
+  | FunType of typ list * typ
+
 (* |def| -- definitions in environment *)
 type def = 
   { d_tag : ident;              (* Name *)
     d_kind : def_kind;          (* Definition *)
+    d_type : typ;               (* Type *)
     d_level : int;              (* Nesting level *)
     d_lab : string;             (* Label if global *)
     d_off : int }               (* Offset if local *)
 
 and def_kind =
-    VarDef                      (* Variable (offset) *)
-  | ProcDef of int              (* Procedure (label, nparams) *)
+    VarDef                      (* Variable *)
+  | ProcDef                     (* Procedure *)
 
 type environment
 

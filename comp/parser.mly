@@ -5,6 +5,7 @@
 %token<Keiko.op> MONOP MULOP ADDOP RELOP
 %token          MINUS LPAR RPAR COMMA SEMI DOT ASSIGN EOF BADTOK
 %token          BEGIN END VAR PRINT IF THEN ELSE WHILE DO PROC RETURN NEWLINE
+%token          COLON ARR NUM BOOL TRUE FALSE
 
 %start          program
 %type<Tree.program> program
@@ -12,6 +13,7 @@
 %{
 open Keiko
 open Tree
+open Dict
 %}
 
 %%
@@ -24,22 +26,31 @@ block :
 
 var_decl :
     /* empty */                         { [] }
-  | VAR ident_list SEMI                 { $2 } ;
+  | VAR decl_list SEMI                  { $2 } ;
 
-ident_list :
-    IDENT                               { [$1] }
-  | IDENT COMMA ident_list              { $1::$3 } ;
+decl_list :
+    IDENT COLON typ                     { [ ($1, $3) ] }
+  | IDENT COLON typ COMMA decl_list     { ($1, $3)::$5 } ;
 
 proc_decls :
     /* empty */                         { [] }
   | proc_decl proc_decls                { $1::$2 } ;
 
 proc_decl :
-    PROC name formals SEMI block SEMI   { Proc ($2, $3, $5) } ;
+    PROC name formals COLON typ SEMI block SEMI   { Proc ($2, $3, $7, $5) } ;
+
+typ :
+    BOOL                                { BoolType }
+  | NUM                                 { NumType }
+  | LPAR type_list RPAR ARR typ         { FunType($2, $5) }
+
+type_list :
+    typ                                 { [$1] }
+  | typ COMMA type_list                 { $1::$3 }
 
 formals :
     LPAR RPAR                           { [] } ;
-  | LPAR ident_list RPAR                { $2 } ;
+  | LPAR decl_list RPAR                 { $2 } ;
 
 stmts :
     stmt_list                           { seq $1 } ;
@@ -81,6 +92,8 @@ term :
 
 factor :
     NUMBER                              { Number $1 } 
+  | TRUE                                { Bool true }
+  | FALSE                               { Bool false }
   | name                                { Variable $1 }
   | name actuals                        { Call ($1, $2) }
   | MONOP factor                        { Monop ($1, $2) }

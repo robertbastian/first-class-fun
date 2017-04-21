@@ -11,6 +11,7 @@ type name =
 
 type expr = 
     Number of int
+  | Bool of bool
   | Variable of name
   | Monop of Keiko.op * expr
   | Binop of Keiko.op * expr * expr
@@ -26,9 +27,9 @@ type stmt =
   | Print of expr
   | Newline
 
-type block = Block of ident list * proc list * stmt
+type block = Block of (ident * typ) list * proc list * stmt
 
-and proc = Proc of name * ident list * block
+and proc = Proc of name * (ident * typ) list * block * typ
 
 type program = Program of block
 
@@ -52,20 +53,30 @@ let get_def x =
 
 open Print
 
-let fTail f xs =
-  let g prf = List.iter (fun x -> prf "; $" [f x]) xs in fExt g
-
-let fList f =
+let fList_ f =
   function
-      [] -> fStr "[]"
-    | x::xs -> fMeta "[$$]" [f x; fTail(f) xs]
+      [] -> fStr ""
+    | [x] -> f x
+    | x::xs -> fMeta "$;$" [f x; fList(f) xs]
+
+let fList f x = fMeta "[$]" [fList_(f) x]
 
 let fName x = fStr x.x_name
+
+let rec fType =
+  function
+    NumType -> fStr "num"
+  | BoolType -> fStr "bool"
+  | FunType (atypes, rtype) -> fMeta "($) -> $" [fList_(fType) atypes; fType rtype]
+
+let fDecl (id,t) = fMeta "$: $" [fStr id; fType t]
 
 let rec fExpr =
   function
       Number n ->
         fMeta "Number_$" [fNum n]
+    | Bool b ->
+        fMeta "Bool_$" [fBool b]
     | Variable x -> 
         fMeta "Variable_$" [fName x]
     | Monop (w, e1) -> 
@@ -95,10 +106,10 @@ let rec fStmt =
         fMeta "WhileStmt_($, $)" [fExpr e; fStmt s]
 
 let rec fBlock (Block (vs, ps, body)) =
-  fMeta "Block_($, $, $)" [fList(fStr) vs; fList(fProc) ps; fStmt body]
+  fMeta "Block_($, $, $)" [fList(fDecl) vs; fList(fProc) ps; fStmt body]
 
-and fProc (Proc (x, fps, body)) =
-  fMeta "Proc_($, $, $)" [fName x; fList(fStr) fps; fBlock body]
+and fProc (Proc (x, fps, body, r)) =
+  fMeta "Proc_($, $, $, $)" [fName x; fList(fDecl) fps; fBlock body; fType r]
 
 let print_tree fp (Program b) =
   fgrindf fp "" "Program_($)" [fBlock b]

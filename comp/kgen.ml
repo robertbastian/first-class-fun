@@ -42,11 +42,12 @@ let rec gen_expr =
           match d.d_kind with
               VarDef ->
                 SEQ [LINE x.x_line; gen_addr d; LOADW]
-            | ProcDef nargs -> 
+            | ProcDef ->
                 SEQ [LINE x.x_line; find_sp d.d_level; GLOBAL d.d_lab; PACK]
         end
     | Number x ->
         CONST x
+    | Bool b -> CONST (if b then 1 else 0)
     | Monop (w, e1) ->
         SEQ [gen_expr e1; MONOP w]
     | Binop (w, e1, e2) ->
@@ -56,7 +57,7 @@ let rec gen_expr =
         let frame = 
           begin 
             match d.d_kind with 
-              ProcDef nargs -> SEQ [find_sp d.d_level; GLOBAL d.d_lab]
+              ProcDef -> SEQ [find_sp d.d_level; GLOBAL d.d_lab]
             | VarDef -> SEQ [gen_addr d; LOADW; UNPACK]
           end 
         in
@@ -113,7 +114,7 @@ let rec gen_stmt =
         SEQ [gen_expr e; RETURNW]
 
 (* |gen_proc| -- generate code for a procedure *)
-let rec gen_proc (Proc (p, formals, Block (vars, procs, body))) =
+let rec gen_proc (Proc (p, formals, Block (vars, procs, body), rtype)) =
   let d = get_def p in
   level := d.d_level;
   let code = gen_stmt body in
@@ -131,4 +132,4 @@ let translate (Program (Block (vars, procs, body))) =
   printf "RETURN\n" [];
   printf "END\n\n" [];
   List.iter gen_proc procs;
-  List.iter (function x -> printf "GLOVAR _$ 4\n" [fStr x]) vars
+  List.iter (function (x,t) -> printf "GLOVAR _$ 4\n" [fStr x]) vars

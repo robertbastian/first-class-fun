@@ -18,7 +18,8 @@ let kwtable =
       ("if", IF); ("then", THEN); ("else", ELSE); ("while", WHILE); 
       ("do", DO); ("proc", PROC); ("return", RETURN); ("newline", NEWLINE);
       ("and", MULOP And); ("div", MULOP Div); ("or", ADDOP Or);
-      ("not", MONOP Not); ("mod", MULOP Mod) ]
+      ("not", MONOP Not); ("mod", MULOP Mod); ("num" , NUM); ("bool", BOOL);
+      ("true", TRUE); ("false", FALSE) ]
 
 let lookup s = try Hashtbl.find kwtable s with Not_found -> IDENT s
 
@@ -42,8 +43,10 @@ rule token = parse
 | ")"                   { RPAR }
 | ","                   { COMMA }
 | ";"                   { SEMI }
+| ":"                   { COLON }
 | "."                   { DOT }
 | ":="                  { ASSIGN }
+| "->"                  { ARR }
 | [' ''\t']+            { token lexbuf }
 | "(*"                  { comment lexbuf; token lexbuf }
 | '\n'                  { incr lineno; Source.note_line !lineno lexbuf;

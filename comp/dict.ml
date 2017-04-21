@@ -15,17 +15,23 @@ let lab = ref 0
 (* |label| -- allocate a code label *)
 let label () = incr lab; !lab
 
+type typ = 
+    BoolType
+  | NumType
+  | FunType of typ list * typ
+
 (* |def| -- definitions in environment *)
 type def = 
   { d_tag : ident;              (* Name *)
     d_kind : def_kind;          (* Definition *)
+    d_type : typ;               (* Type *)
     d_level : int;              (* Nesting level *)
     d_lab : string;             (* Label if global *)
     d_off : int }               (* Offset if local *)
 
 and def_kind =
     VarDef                      (* Variable *)
-  | ProcDef of int              (* Procedure (nparams) *)
+  | ProcDef                     (* Procedure *)
 
 let find_def x ds =
   let rec search =
