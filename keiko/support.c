@@ -207,34 +207,29 @@ proc find_symbol(value *p, proc *table, int nelem) {
 value *clotab[256];
 int nclo = 0;
 
+// BEGIN HACK
+
+typedef struct closure {
+     value* code;
+     uchar* env;
+} closure;
+
 int pack(value *code, uchar *env) {
-     unsigned tag, val;
-
-     for (tag = 0; tag < nclo; tag++)
-          if (clotab[tag] == code) break;
-
-     if (tag == nclo) {
-          if (nclo == 256) panic("Out of closure tags");
-          clotab[nclo++] = code;
-     }
-
-     if (env != NULL && (env <= stack || env > stack + stack_size)) 
-          panic("Bad luck in pack");
-
-     val = (env == NULL ? 0 : env - stack);
-
-     return (tag << 24) | val;
+     closure* c = (closure*) malloc(sizeof(closure));
+     c->code = code;
+     c->env = env;
+     return (unsigned) c;
 }
 
 value *getcode(int word) {
-     unsigned tag = ((unsigned) word) >> 24;
-     return clotab[tag];
+     return ((closure*) word)->code;
 }
 
 uchar *getenvt(int word) {
-     unsigned val = ((unsigned) word) & 0xffffff;
-     return (val == 0 ? NULL : stack + val);
+     return ((closure*) word)->env;
 }
+
+// END HACK
      
 void pack_closure(value *sp) {
      sp[1].i = pack(sp[0].p, sp[1].x);

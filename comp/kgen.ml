@@ -9,6 +9,8 @@ let optflag = ref false
 
 let level = ref 0
 
+let elink = 12
+
 let slink = 12
 
 
@@ -19,16 +21,19 @@ let gen_addr d =
   if d.d_level = 0 then
     GLOBAL d.d_lab
   else
-    SEQ [LOCAL 0; SEQ (rep (!level-d.d_level) (SEQ [CONST slink; BINOP PlusA; LOADW])); CONST d.d_off; BINOP PlusA]
+    SEQ [LOCAL elink; LOADW; SEQ (rep (!level-d.d_level) (SEQ [CONST slink; BINOP PlusA; LOADW])); CONST d.d_off; BINOP PlusA]
     
 
 let rec find_sp callLevel =
+  (* Main *)
+  if !level = 0 then
+    CONST 0
   (* Child proc *)
-  if callLevel > !level then 
-    LOCAL 0
+  else if callLevel > !level then 
+    SEQ[LOCAL elink; LOADW]
   (* Same level *)
   else if callLevel = !level then 
-    SEQ[LOCAL 0; CONST slink; BINOP PlusA; LOADW]
+    SEQ[LOCAL elink; LOADW; CONST slink; BINOP PlusA; LOADW]
   (* Somewhere above *)
   else (* if callLevel < !level then *)
     SEQ[find_sp (callLevel+1); CONST slink; BINOP PlusA; LOADW]
@@ -111,7 +116,10 @@ let rec gen_proc (Proc (p, formals, Block (vars, procs, body), rtype)) =
   let d = get_def p in
   level := d.d_level;
   let code = gen_stmt body in
-  printf "PROC $ $ 0 0\n" [fStr d.d_lab; fNum (4 * List.length vars)];
+  let fs = List.length formals in
+  let ls = List.length vars in
+  printf "PROC $ $ $ $\n" [fStr d.d_lab; fNum (fs + ls); fNum fs;
+    fNum d.d_rmap];
   Keiko.output (if !optflag then Peepopt.optimise code else code);
   printf "ERROR E_RETURN 0\n" [];
   printf "END\n\n" [];

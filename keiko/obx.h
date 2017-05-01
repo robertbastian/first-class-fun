@@ -252,6 +252,12 @@ double flo_convq(longint);
 
 /* gc.c */
 
+value* make_env(int size, int ref_map);
+
+void inc_ref_count(value* env);
+
+void dec_ref_count(value* env);
+
 /* scratch_alloc -- allocate memory that will not be freed */
 void *scratch_alloc(unsigned bytes, boolean atomic);
 

@@ -16,6 +16,7 @@ type def =
   { d_tag : ident;              (* Name *)
     d_kind : def_kind;          (* Definition *)
     d_type : typ;               (* Type *)
+    d_rmap : int;               (* If Proc, bitmap of args/locals that are GC relevant *)
     d_level : int;              (* Nesting level *)
     d_lab : string;             (* Label if global *)
     d_off : int }               (* Offset if local *)

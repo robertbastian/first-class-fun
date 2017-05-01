@@ -121,62 +121,67 @@ let serialize xs =
       | x :: xs -> (i, x) :: count (i+1) xs in
   count 0 xs
 
+let is_packed_closure =
+  function
+    (_, FunType(_,_)) -> true
+  | _ -> false
+
+let rec make_bitmap =
+  function
+    [] -> 0
+  | b::bs -> (if b then 1 else 0) + 2*(make_bitmap bs)
+
+let make_ref_map formals vars =
+  make_bitmap (List.map is_packed_closure (formals@vars))
+
 (*
 Frame layout
 
-        arg n
-        ...
-fp+16:  arg 1
-fp+12:  static link
-fp+8:   current cp
-fp+4:   return addr
-fp:     dynamic link
-fp-4:   local 1
-        ...
-        local m
+fp+12:  closure link   --->     env: <internal>
+fp+8:   current cp                      ...
+fp+4:   return addr             env+12: static link
+fp:     dynamic link            env+16: arg 1
+                                        ...
+                                        arg n
+                                        local 1
+                                        ...
+                                        local m
 *)
 
 let arg_base = 16
-let loc_base = 0
 
-(* |declare_arg| -- declare a formal parameter *)
-let declare_arg lev env (i, (x,t)) =
+(* |declare_arg| -- declare a formal parameter or local variable *)
+let declare_arg_loc lev env (i, (x,t)) =
   let d = { d_tag = x; d_kind = VarDef; d_type = t; d_level = lev;
-                d_lab = ""; d_off = arg_base + 4*i } in
-  add_def d env
-
-(* |declare_arg| -- declare a local variable *)
-let declare_local lev env (i, (x,t)) =
-  let d = { d_tag = x; d_kind = VarDef; d_type = t; d_level = lev;
-                d_lab = ""; d_off = loc_base - 4*(i+1) } in
+                d_lab = ""; d_off = arg_base + 4*i; d_rmap = 0 } in
   add_def d env
 
 (* |declare_global| -- declare a global variable *)
 let declare_global env (x, t) =
   let d = { d_tag = x; d_kind = VarDef; d_type = t; d_level = 0;
-                d_lab = sprintf "_$" [fStr x]; d_off = 0 } in
+                d_lab = sprintf "_$" [fStr x]; d_off = 0; d_rmap = 0 } in
   add_def d env
 
 (* |declare_proc| -- declare a procedure *)
-let declare_proc lev env (Proc (p, formals, body, rtype)) =
+let declare_proc lev env (Proc (p, formals, Block (vars, procs, body), rtype)) =
   let lab = sprintf "$_$" [fStr p.x_name; fNum (label ())] in
   let d = { d_tag = p.x_name; 
                 d_kind = ProcDef;
                 d_type = FunType((List.map snd formals), rtype);
-                d_level = lev; d_lab = lab; d_off = 0 } in
+                d_level = lev; d_lab = lab; d_off = 0;
+                d_rmap = make_ref_map formals vars } in
   p.x_def <- Some d; add_def d env
 
 (* |check_proc| -- check a procedure body *)
 let rec check_proc lev env (Proc (p, formals, Block (vars, procs, body), rtype)) =
   err_line := p.x_line;
   let env' = 
-    List.fold_left (declare_arg lev) (new_block env) (serialize formals) in
+    List.fold_left (declare_arg_loc lev) (new_block env) 
+      (serialize (formals@vars)) in
   let env'' = 
-    List.fold_left (declare_local lev) env' (serialize vars) in
-  let env''' = 
-    List.fold_left (declare_proc (lev+1)) env'' procs in
-  List.iter (check_proc (lev+1) env''') procs;
-  check_stmt (Some rtype) env''' body
+    List.fold_left (declare_proc (lev+1)) env' procs in
+  List.iter (check_proc (lev+1) env'') procs;
+  check_stmt (Some rtype) env'' body
 
 (* |annotate| -- check and annotate a program *)
 let annotate (Program (Block (vars, procs, body))) =

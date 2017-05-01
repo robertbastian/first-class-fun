@@ -82,8 +82,8 @@ typedef union {
 #define CP_PRIM 0               /* Primitive address */
 #define CP_CODE 1               /* Bytecode address */
 #define CP_SIZE 2               /* Size of bytecode */
-#define CP_FRAME 3              /* Frame size */
-#define CP_STACK 4              /* Stack size */
+#define CP_FRAME 3              /* Frame size (number of args+locals) */
+#define CP_STACK 4              /* Stack size (number of args) */
 #define CP_MAP 5                /* Frame map */
 #define CP_STKMAP 6             /* Stack map table */
 #define CP_CONST 7              /* First constant */

@@ -50,3 +50,41 @@ void *scratch_alloc(unsigned size, boolean atomic) {
 /* gc_init -- initialise everything */
 void gc_init(void) {
 }
+
+// BEGIN HACK
+void* alloc(unsigned size) {
+  return malloc(size);
+}
+
+void dealloc(void* p, unsigned size) {
+  free(p);
+}
+// END HACK
+
+value* make_env(int size, int ref_map) {
+  value* env = (value*) alloc(4*(4+size));
+  env[0].i = 1000; // hack, incrementing not implemented 
+  env[1].i = size;
+  env[2].i = ref_map;
+  return env;
+}
+
+void inc_ref_count(value* env) {
+  env[0].i++;
+}
+
+void dec_all_ref_counts(value* env) {
+  for (int i = 0; i < env[1].i; i++) {
+     if ((1 << i) & env[2].i) {
+         value* p = (value *) getenvt(env[4+i].i);
+         if (p != 0) dec_ref_count(p);
+     }
+  } 
+}
+
+void dec_ref_count(value* env) {
+  if (--env[0].i == 0) {
+    dec_all_ref_counts(env);
+    dealloc(env, 4*(4+env[1].i));
+  }
+}
