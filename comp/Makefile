@@ -23,7 +23,7 @@ test: force
 
 test-%: force
 	@echo "*** Test $*.p"
-	./ppc $*.p >a.k
+	./ppc -O $*.p >a.k
 	$(KEIKO)/pplink -custom -nostdlib $(KEIKO)/lib.k a.k -o a.x >/dev/null
 	-$(KEIKO)/ppx ./a.x >a.test 2>&1
 	sed -n -e '1,/^(\*<</d' -e '/^>>\*)/q' -e p $*.p | diff - a.test

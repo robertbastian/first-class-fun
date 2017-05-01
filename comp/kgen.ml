@@ -121,7 +121,8 @@ let rec gen_proc (Proc (p, formals, Block (vars, procs, body), rtype)) =
 let translate (Program (Block (vars, procs, body))) =
   level := 0;
   printf "PROC MAIN 0 0 0\n" [];
-  Keiko.output (gen_stmt body);
+  let m = gen_stmt body in
+  Keiko.output (if !optflag then Peepopt.optimise m else m);
   printf "RETURN\n" [];
   printf "END\n\n" [];
   List.iter gen_proc procs;
