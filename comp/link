@@ -1,0 +1,12 @@
+#!/bin/sh
+
+# This hacked up version works, at least on linux, even for people who
+# have spaces in the names of directories.  Sheesh.
+
+KEIKO=`cd ../keiko; pwd`
+
+set -x
+
+"$KEIKO/pplink" -custom -nostdlib -i "/usr/bin/env $KEIKO/ppx" \
+        "$KEIKO/lib.k" $1 -o a.out >/dev/null \
+    && chmod +x a.out
