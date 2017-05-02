@@ -38,6 +38,8 @@ type code =
   | CASEARM of int * codelab    (* Case value and label *)
   | PACK                        (* Pack two values into one *)
   | UNPACK                      (* Unpack one value into two *)
+  | INCREF                      (* Signal that new pointer to env is created *)
+  | DECREF                      (* Signal that pointer to env is destroyed *)
 
   | LINE of int
   | SEQ of code list

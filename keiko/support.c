@@ -218,6 +218,7 @@ int pack(value *code, uchar *env) {
      closure* c = (closure*) malloc(sizeof(closure));
      c->code = code;
      c->env = env;
+     inc_ref_count(env);
      return (unsigned) c;
 }
 

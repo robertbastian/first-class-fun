@@ -44,10 +44,12 @@ let rec gen_expr =
       Variable x ->
         let d = get_def x in
         begin
-          match d.d_kind with
-              VarDef ->
+          match d.d_kind, d.d_type with
+              VarDef, FunType(_,_) ->
+                SEQ [LINE x.x_line; gen_addr d; LOADW; INCREF]
+            | VarDef, _ ->
                 SEQ [LINE x.x_line; gen_addr d; LOADW]
-            | ProcDef ->
+            | ProcDef, _ ->
                 SEQ [LINE x.x_line; find_sp d.d_level; GLOBAL d.d_lab; PACK]
         end
     | Number x ->
@@ -59,6 +61,7 @@ let rec gen_expr =
         SEQ [gen_expr e1; gen_expr e2; BINOP w]
     | Call (e, args) -> 
         let frame = SEQ [gen_expr e; UNPACK] in
+        (* moving static link from stack to env-record, so keep ref count *)
         SEQ[SEQ (List.rev (List.map gen_expr args)); frame; PCALLW (List.length args)]
 
 (* |gen_cond| -- generate code for short-circuit condition *)
@@ -90,9 +93,12 @@ let rec gen_stmt =
     | Assign (v, e) ->
         let d = get_def v in
         begin
-          match d.d_kind with
-              VarDef ->
-                SEQ [gen_expr e; gen_addr d; STOREW]
+          match d.d_kind, d.d_type with
+              VarDef, FunType(_,_) ->
+                (* moves pointer from stack to heap, so no inc. dec the pointer being overwritten *)
+                SEQ [gen_expr e; gen_addr d; DECREF; STOREW]
+           |  VarDef, _ ->
+                SEQ [gen_expr e; gen_addr d; STOREW];
            | _ -> failwith "assign"
         end
     | Print e ->

@@ -65,6 +65,10 @@ inst INDEXW 0           B.x {$1.x + ($2.i<<2)}
 inst INDEXD 0           B.x {$1.x + ($2.i<<3)}
 
 
+# Reference counting
+inst INCREF 0          S0 { inc_ref_count(getenvt(sp[0].i)); }
+inst DECREF 0          S0 { dec_ref_count(getenvt(sp[0].i)); }
+
 # LOADS AND STORES
 
 # Load/store from address

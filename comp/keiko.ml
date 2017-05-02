@@ -44,6 +44,8 @@ type code =
   | CASEARM of int * codelab    (* Case value and label *)
   | PACK                        (* Pack two values into one *)
   | UNPACK                      (* Unpack one value into two *)
+  | INCREF                      (* Signal that new pointer to env is created *)
+  | DECREF                      (* Signal that pointer to env is destroyed *)
 
   | LINE of int
   | SEQ of code list
@@ -89,6 +91,8 @@ let fInst =
     | CASEARM (v, l) -> fMeta "CASEARM $ $" [fNum v; fLab l]
     | PACK ->           fStr "PACK"
     | UNPACK ->         fStr "UNPACK"
+    | INCREF ->         fStr "INCREF"
+    | DECREF ->         fStr "DECREF"
 
     | LINE n ->         fMeta "LINE $" [fNum n]
     | SEQ _ ->          fStr "SEQ ..."
