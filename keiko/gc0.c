@@ -62,23 +62,22 @@ void dealloc(void* p, unsigned size) {
 // END HACK
 
 value* make_env(value* cp, value* sp) {
-  value* env = (value*) alloc(4*(4+cp[CP_FRAME].i));
-  env[0].i = 1;
-  env[1].i = cp[CP_FRAME].i;
-  env[2].i = cp[CP_MAP].i;
-  env[3].p = sp;
+  value* env = (value*) alloc(4*(AR_HEAD+cp[CP_FRAME].i));
+  env[AR_REFC].i = 1;
+  env[AR_CODE].p = cp;
+  env[AR_SLINK].p = sp;
   return env;
 }
 
 void inc_ref_count(value* env) {
-  if (env != 0) env[0].i++;
+  if (env != 0) env[AR_REFC].i++;
 }
 
 void dec_all_ref_counts(value* env) {
-  dec_ref_count(env[3].p);
-  for (int i = 0; i < env[1].i; i++) {
-     if ((1 << i) & env[2].i) {
-         value* p = (value *) getenvt(env[4+i].i);
+  dec_ref_count(env[AR_SLINK].p);
+  for (int i = 0, n = (env[AR_CODE].p)[CP_FRAME].i; i < n; i++) {
+     if ((1 << i) & (env[AR_CODE].p)[CP_MAP].i) {
+         value* p = (value *) getenvt(env[AR_HEAD+i].i);
          dec_ref_count(p);
      }
   } 
@@ -86,9 +85,9 @@ void dec_all_ref_counts(value* env) {
 
 void dec_ref_count(value* env) {
   if (env != 0) {
-    if (--env[0].i == 0) {
+    if (--env[AR_REFC].i == 0) {
       dec_all_ref_counts(env);
-      dealloc(env, 4*(4+env[1].i));
+      dealloc(env, 4*(AR_HEAD+(env[AR_CODE].p)[CP_FRAME].i));
     }
   }
 }

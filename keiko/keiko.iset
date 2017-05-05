@@ -535,9 +535,9 @@ defs {
      fp = sp;                                                           \
      value* env = make_env(cp, sp[HEAD].p);                             \
      int nargs = cp[CP_STACK].i;                                        \
-     memcpy(&env[4], &sp[HEAD+1], 4 * nargs);                           \
-     memset(&env[4+nargs], 0, 4 * (cp[CP_FRAME].i-nargs));              \
-     sp[HEAD].p = env;
+     memcpy(&env[AR_HEAD], &sp[HEAD+1], 4 * nargs);                     \
+     memset(&env[AR_HEAD+nargs], 0, 4 * (cp[CP_FRAME].i-nargs));        \
+     sp[HEAD].p = env;                                                  \
 
 #ifdef OBXDEB
 #define cond_break() \

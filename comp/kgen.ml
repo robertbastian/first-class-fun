@@ -11,7 +11,7 @@ let level = ref 0
 
 let elink = 12
 
-let slink = 12
+let slink = 8
 
 
 let rec rep n x = if n = 0 then [] else x::(rep (n-1) x)

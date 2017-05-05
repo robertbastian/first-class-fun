@@ -139,8 +139,8 @@ Frame layout
 
 fp+12:  closure link   --->     env: <internal>
 fp+8:   current cp                      ...
-fp+4:   return addr             env+12: static link
-fp:     dynamic link            env+16: arg 1
+fp+4:   return addr             env+8:  static link
+fp:     dynamic link            env+12: arg 1
                                         ...
                                         arg n
                                         local 1
@@ -148,7 +148,7 @@ fp:     dynamic link            env+16: arg 1
                                         local m
 *)
 
-let arg_base = 16
+let arg_base = 12
 
 (* |declare_arg| -- declare a formal parameter or local variable *)
 let declare_arg_loc lev env (i, (x,t)) =

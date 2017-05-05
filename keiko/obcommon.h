@@ -88,6 +88,11 @@ typedef union {
 #define CP_STKMAP 6             /* Stack map table */
 #define CP_CONST 7              /* First constant */
 
+#define AR_REFC 0               /* Reference count */
+#define AR_CODE 1               /* Size of environment */
+#define AR_SLINK 2              /* Static link */
+#define AR_HEAD 3               /* Size of allocation record head */
+
 /* Descriptor layout */
 #define DESC_MAP 0              /* Pointer map */
 #define DESC_DEPTH 1            /* Inheritance depth of record */
