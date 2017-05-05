@@ -200,9 +200,9 @@ void long_flo(value *sp);
 void long_ext(value *sp);
 
 #ifdef SPECIALS
-int pack(value *code, uchar *env);
+int pack(value *code, value *env);
 value *getcode(int word);
-uchar *getenvt(int word);
+value *getenvt(int word);
 
 void pack_closure(value *sp);
 void unpack_closure(value *sp);
@@ -252,7 +252,7 @@ double flo_convq(longint);
 
 /* gc.c */
 
-value* make_env(int size, int ref_map);
+value* make_env(value* cp, value* sp);
 
 void inc_ref_count(value* env);
 

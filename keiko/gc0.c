@@ -61,11 +61,12 @@ void dealloc(void* p, unsigned size) {
 }
 // END HACK
 
-value* make_env(int size, int ref_map) {
-  value* env = (value*) alloc(4*(4+size));
+value* make_env(value* cp, value* sp) {
+  value* env = (value*) alloc(4*(4+cp[CP_FRAME].i));
   env[0].i = 1;
-  env[1].i = size;
-  env[2].i = ref_map;
+  env[1].i = cp[CP_FRAME].i;
+  env[2].i = cp[CP_MAP].i;
+  env[3].p = sp;
   return env;
 }
 

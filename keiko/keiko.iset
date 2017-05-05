@@ -68,7 +68,6 @@ inst INDEXD 0           B.x {$1.x + ($2.i<<3)}
 # Reference counting
 inst INCREF 0          S0 { inc_ref_count(getenvt(sp[0].i)); }
 inst DECREF 0          S0 { dec_ref_count(getenvt(sp[0].i)); }
-
 # LOADS AND STORES
 
 # Load/store from address
@@ -529,9 +528,9 @@ inst SAVELINK 0         S0 {fp[SL].p = statlink;}
 defs {
 #define frame()                                                         \
      fp = sp;                                                           \
-     value* env = make_env(cp[CP_FRAME].i, cp[CP_MAP].i);               \
+     value* env = make_env(cp, sp[HEAD].p);                             \
      int nargs = cp[CP_STACK].i;                                        \
-     memcpy(&env[3], &sp[HEAD], 4 * (1+nargs));                         \
+     memcpy(&env[4], &sp[HEAD+1], 4 * nargs);                           \
      memset(&env[4+nargs], 0, 4 * (cp[CP_FRAME].i-nargs));              \
      sp[HEAD].p = env;
 
@@ -660,9 +659,9 @@ defs {
 inst CASEJUMP 1         S1  {casejump($1.i, $a);}
 zinst CASEARM 2R
 
-inst PACK 0             B.i {pack($2.p, $1.x)}
+inst PACK 0             B.i {pack($2.p, $1.p)}
 inst UNPACK 0           S0 {sp--; sp[0].p = getcode(sp[1].i); 
-                                   sp[1].x = getenvt(sp[1].i);}
+                                   sp[1].p = getenvt(sp[1].i);}
 }
 
 zinst REG 0

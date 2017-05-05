@@ -211,34 +211,33 @@ int nclo = 0;
 
 typedef struct closure {
      value* code;
-     uchar* env;
+     value* env;
 } closure;
 
-int pack(value *code, uchar *env) {
+int pack(value *code, value *env) {
      closure* c = (closure*) malloc(sizeof(closure));
      c->code = code;
      c->env = env;
-     inc_ref_count(env);
      return (unsigned) c;
 }
 
 value *getcode(int word) {
-     return ((closure*) word)->code;
+     return word == 0 ? 0 : ((closure*) word)->code;
 }
 
-uchar *getenvt(int word) {
-     return ((closure*) word)->env;
+value *getenvt(int word) {
+     return word == 0 ? 0 :((closure*) word)->env;
 }
 
 // END HACK
      
 void pack_closure(value *sp) {
-     sp[1].i = pack(sp[0].p, sp[1].x);
+     sp[1].i = pack(sp[0].p, sp[1].p);
 }
 
 void unpack_closure(value *sp) {
      sp--;
      sp[0].p = getcode(sp[1].i);
-     sp[1].x = getenvt(sp[1].i);
+     sp[1].p = getenvt(sp[1].i);
 }
 #endif
