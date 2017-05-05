@@ -102,8 +102,6 @@ let ruleset replace =
         replace 2 [JUMP a]
     | LABEL a :: _ when !(ref_count a) = 0 ->
         replace 1 []
-    | PACK :: UNPACK :: _ ->
-        replace 2 []
     | _ -> ()
 
 (* |take n [x1; x2; ...] = [x1; x2; ...; xn]| *)

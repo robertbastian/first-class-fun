@@ -74,6 +74,7 @@ void inc_ref_count(value* env) {
 }
 
 void dec_all_ref_counts(value* env) {
+  dec_ref_count(env[3].p);
   for (int i = 0; i < env[1].i; i++) {
      if ((1 << i) & env[2].i) {
          value* p = (value *) getenvt(env[4+i].i);
