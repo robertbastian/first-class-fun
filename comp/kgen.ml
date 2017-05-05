@@ -24,19 +24,16 @@ let gen_addr d =
     SEQ [LOCAL elink; LOADW; SEQ (rep (!level-d.d_level) (SEQ [CONST slink; BINOP PlusA; LOADW])); CONST d.d_off; BINOP PlusA]
     
 
-let rec find_sp callLevel =
+let rec find_sp callLevel loadInstr =
   (* Main *)
   if !level = 0 then
     CONST 0
   (* Child proc *)
   else if callLevel > !level then 
-    SEQ[LOCAL elink; LOADW]
-  (* Same level *)
-  else if callLevel = !level then 
-    SEQ[LOCAL elink; LOADW; CONST slink; BINOP PlusA; LOADW]
+    SEQ[LOCAL elink; loadInstr]
   (* Somewhere above *)
   else (* if callLevel < !level then *)
-    SEQ[find_sp (callLevel+1); CONST slink; BINOP PlusA; LOADW]
+    SEQ[find_sp (callLevel+1) LOADW; CONST slink; BINOP PlusA; loadInstr]
 
 (* |gen_expr| -- generate code for an expression *)
 let rec gen_expr =
@@ -46,11 +43,11 @@ let rec gen_expr =
         begin
           match d.d_kind, d.d_type with
               VarDef, FunType(_,_) ->
-                SEQ [LINE x.x_line; gen_addr d; LOADW; INCREF]
+                SEQ [LINE x.x_line; gen_addr d; LOADP]
             | VarDef, _ ->
                 SEQ [LINE x.x_line; gen_addr d; LOADW]
             | ProcDef, _ ->
-                SEQ [LINE x.x_line; find_sp d.d_level; GLOBAL d.d_lab; PACK]
+                SEQ [LINE x.x_line; find_sp d.d_level LOADE; GLOBAL d.d_lab; PACK]
         end
     | Number x ->
         CONST x
@@ -95,8 +92,7 @@ let rec gen_stmt =
         begin
           match d.d_kind, d.d_type with
               VarDef, FunType(_,_) ->
-                (* moves pointer from stack to heap, so no inc. dec the pointer being overwritten *)
-                SEQ [gen_expr e; gen_addr d; DECREF; STOREW]
+                SEQ [gen_expr e; gen_addr d; STOREP]
            |  VarDef, _ ->
                 SEQ [gen_expr e; gen_addr d; STOREW];
            | _ -> failwith "assign"

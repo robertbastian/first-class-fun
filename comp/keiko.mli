@@ -22,6 +22,9 @@ type code =
   | STOREW                      (* Store word *)
   | LOADC                       (* Load character *)
   | STOREC                      (* Store character *)
+  | LOADP                       (* Load packed closure *)
+  | STOREP                      (* Store packed closure *)
+  | LOADE                       (* Load environment pointer *)
   | LDGW of string              (* Load value (name) *)
   | STGW of string              (* Store (name) *)
   | MONOP of op                 (* Perform unary operation (op) *)
@@ -38,8 +41,6 @@ type code =
   | CASEARM of int * codelab    (* Case value and label *)
   | PACK                        (* Pack two values into one *)
   | UNPACK                      (* Unpack one value into two *)
-  | INCREF                      (* Signal that new pointer to env is created *)
-  | DECREF                      (* Signal that pointer to env is destroyed *)
 
   | LINE of int
   | SEQ of code list

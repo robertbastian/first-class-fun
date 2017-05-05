@@ -66,8 +66,10 @@ inst INDEXD 0           B.x {$1.x + ($2.i<<3)}
 
 
 # Reference counting
-inst INCREF 0          S0 { inc_ref_count(getenvt(sp[0].i)); }
-inst DECREF 0          S0 { dec_ref_count(getenvt(sp[0].i)); }
+inst INCREF 0          S0 { inc_ref_count(sp[0].p); }
+inst INCPREF 0         S0 { inc_ref_count(getenvt(sp[0].i)); }
+inst DECPREF 0         S0 { dec_ref_count(getenvt(indir(sp[0].x, int))); }
+
 # LOADS AND STORES
 
 # Load/store from address
@@ -77,10 +79,13 @@ inst LOADW 0            M.i {indir($1.x, int)}
 inst LOADS 0            M.i {indir($1.x, short)}
 inst LOADC 0            M.i {indir($1.x, uchar)}
 inst LOADF 0            M.f {indir($1.x, float)}
+equiv LOADP 0           {LOADW, INCPREF}
+equiv LOADE 0           {LOADW, INCREF}
 inst STOREW 0           S2  {indir($2.x, int) = $1.i;}
 inst STORES 0           S2  {indir($2.x, short) = $1.i;}
 inst STOREC 0           S2  {indir($2.x, uchar) = $1.i;}
 inst STOREF 0           S2  {indir($2.x, float) = $1.f;}
+equiv STOREP 0          {DECPREF, STOREW}
 
 # Load/store local
 # LDLs n :: --> mem_s[fp+n]
