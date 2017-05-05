@@ -48,15 +48,24 @@ void *scratch_alloc(unsigned size, boolean atomic) {
 }
 
 /* gc_init -- initialise everything */
+int alloc_c = 0, dealloc_c = 0;
 void gc_init(void) {
+}
+
+void gc_finish(void) {
+  if (alloc_c != dealloc_c) {
+    printf("Memory leak:\nAllocated:   %d bytes\nDeallocated: %d bytes\n", alloc_c, dealloc_c);
+  }
 }
 
 // BEGIN HACK
 void* alloc(unsigned size) {
+  alloc_c += size;
   return malloc(size);
 }
 
 void dealloc(void* p, unsigned size) {
+  dealloc_c += size;
   free(p);
 }
 // END HACK
@@ -66,6 +75,7 @@ value* make_env(value* cp, value* sp) {
   env[AR_REFC].i = 1;
   env[AR_CODE].p = cp;
   env[AR_SLINK].p = sp;
+  // printf("%x->%x (%x) created\n", (unsigned) env, (unsigned) env[AR_SLINK].p, (unsigned) env[AR_CODE].p);
   return env;
 }
 
@@ -86,6 +96,7 @@ void dec_all_ref_counts(value* env) {
 void dec_ref_count(value* env) {
   if (env != 0) {
     if (--env[AR_REFC].i == 0) {
+      // printf("%x->%x (%x) deleted\n", (unsigned) env, (unsigned) env[AR_SLINK].p, (unsigned) env[AR_CODE].p);
       dec_all_ref_counts(env);
       dealloc(env, 4*(AR_HEAD+(env[AR_CODE].p)[CP_FRAME].i));
     }

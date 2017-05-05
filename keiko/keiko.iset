@@ -533,11 +533,13 @@ inst SAVELINK 0         S0 {fp[SL].p = statlink;}
 defs {
 #define frame()                                                         \
      fp = sp;                                                           \
-     value* env = make_env(cp, sp[HEAD].p);                             \
-     int nargs = cp[CP_STACK].i;                                        \
-     memcpy(&env[AR_HEAD], &sp[HEAD+1], 4 * nargs);                     \
-     memset(&env[AR_HEAD+nargs], 0, 4 * (cp[CP_FRAME].i-nargs));        \
-     sp[HEAD].p = env;                                                  \
+     if (sp != sp0) {                                                   \
+        value* env = make_env(cp, sp[HEAD].p);                          \
+        int nargs = cp[CP_STACK].i;                                     \
+        memcpy(&env[AR_HEAD], &sp[HEAD+1], 4 * nargs);                  \
+        memset(&env[AR_HEAD+nargs], 0, 4 * (cp[CP_FRAME].i-nargs));     \
+        sp[HEAD].p = env;                                               \
+    }
 
 #ifdef OBXDEB
 #define cond_break() \
@@ -607,7 +609,7 @@ inst RETURN 0 S0 {
      }
 
      sp = fp; pc = sp[PC].x; fp = sp[FP].p; cp = fp[CP].p;
-     dec_ref_count(sp[HEAD].p);
+     if (sp != sp0) dec_ref_count(sp[HEAD].p);
      do_find_proc;
 #ifdef PROFILE
      prof_exit(cp, ticks);

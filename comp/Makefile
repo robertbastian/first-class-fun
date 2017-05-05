@@ -1,7 +1,7 @@
 # lab3/Makefile
 
 ## Add your own test cases to this list
-TEST = gcd fac0 fac sumpow sumpow2 bug digits staticclosure heapclosure
+TEST = gcd fac0 fac sumpow sumpow2 bug digits staticclosure heapclosure cycle
 
 all: ppc
 

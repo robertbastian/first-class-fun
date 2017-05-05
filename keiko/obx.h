@@ -275,6 +275,7 @@ int gc_heap_size(void);
 
 extern boolean gcflag;
 void gc_init(void);
+void gc_finish(void);
 void gc_debug(char *flags);
 void gc_dump(void);
 
