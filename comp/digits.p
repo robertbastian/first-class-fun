@@ -2,7 +2,7 @@
 
 var q: num;
 
-proc search(k: num, n: num, avail: (num)->bool): num;
+proc search(k: num, n: num, avail: num->bool): num;
 
   var d: num, nn: num;
 

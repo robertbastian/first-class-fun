@@ -42,11 +42,12 @@ proc_decl :
 typ :
     BOOL                                { BoolType }
   | NUM                                 { NumType }
-  | LPAR type_list RPAR ARR typ         { FunType($2, $5) }
+  | LPAR product_type RPAR ARR typ      { FunType($2, $5) }
+  | typ ARR typ                         { FunType([$1], $3) }
 
-type_list :
+product_type :
     typ                                 { [$1] }
-  | typ COMMA type_list                 { $1::$3 }
+  | typ COMMA product_type              { $1::$3 }
 
 formals :
     LPAR RPAR                           { [] } ;
