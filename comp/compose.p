@@ -1,9 +1,9 @@
 (* lab3/compose.p *)
 
-var p;
+var p: num->num;
 
-proc compose(f, g);
-  proc fg(x);
+proc compose(f: num->num, g: num->num): num->num;
+  proc fg(x: num): num;
   begin
     return f(g(x))
   end;
@@ -11,16 +11,14 @@ begin
   return fg
 end;
 
-proc dummy(f, g);
-  var a0, a1, a2, a3, a4, a5, a6, a7, a8, a9;
-begin
-  return compose(f, g)
-end;
-
-proc add2(x); begin return x+2 end;
-proc square(x); begin return x * x end;
+proc add2(x: num): num; begin return x+2 end;
+proc square(x: num): num; begin return x * x end;
 
 begin
-  p := dummy(square, add2);
+  p := compose(square, add2);
   print p(2); newline
 end.
+
+(*<<
+ 16
+>>*)

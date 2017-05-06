@@ -1,6 +1,6 @@
 (* lab3/sumpow2.p *)
 
-proc sum(n: num, f: (num)->num): num;
+proc sum(n: num, f: num->num): num;
   var m: num, s: num;
 begin
   m := 0; s := 0;

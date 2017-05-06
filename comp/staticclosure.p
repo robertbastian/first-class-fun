@@ -1,4 +1,6 @@
-proc f(y: num): (num)->num;
+var k: num->num;
+
+proc f(y: num): num->num;
   proc g(z: num): num;
   begin
     return (z+1)
@@ -9,7 +11,8 @@ begin
 end;
 
 begin
-  print f(2)(5); newline;
+  k := f(2);
+  print k(5); newline;
 end.
 
 (*<<
