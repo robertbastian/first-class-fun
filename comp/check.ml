@@ -121,6 +121,34 @@ let serialize xs =
       | x :: xs -> (i, x) :: count (i+1) xs in
   count 0 xs
 
+let rec captured_vars_e env =
+  function
+   | Variable x -> begin try let d = lookup x.x_name env in match d.d_kind with
+      ProcDef _ -> empty_set | VarDef ->
+      if d.d_level == 0 then empty_set else singleton (x.x_name, d.d_type)
+      with Not_found -> empty_set end
+   | Monop (w, e1) -> captured_vars_e env e1
+   | Binop (w, e1, e2) -> union [captured_vars_e env e1; captured_vars_e env e2]
+   | Call (e, args) -> union (List.map (captured_vars_e env) (e::args))
+   | _ -> empty_set
+
+let rec captured_vars_s env =
+  function
+  | Seq ss -> union (List.map (captured_vars_s env) ss)
+  | Assign (x, e) ->
+      let capt = captured_vars_e env e in
+      begin try let d = lookup x.x_name env in
+      if d.d_level > 0 then sem_error "assigning to variable $ in enclosing scope" [fStr x.x_name]
+      else capt
+      with Not_found -> capt end
+  | Return e -> captured_vars_e env e
+  | IfStmt (test, thenpt, elsept) -> union
+    [captured_vars_e env test; captured_vars_s env thenpt; captured_vars_s env elsept]
+  | WhileStmt (test, body) -> union
+    [captured_vars_e env test; captured_vars_s env body]
+  | Print e -> captured_vars_e env e
+  | _ -> empty_set
+
 (*
 Frame layout
 
@@ -161,16 +189,20 @@ let declare_global env (x, t) =
 let declare_proc lev env (Proc (p, formals, body, rtype)) =
   let lab = sprintf "$_$" [fStr p.x_name; fNum (label ())] in
   let d = { d_tag = p.x_name; 
-                d_kind = ProcDef;
+                d_kind = ProcDef [];
                 d_type = FunType((List.map snd formals), rtype);
                 d_level = lev; d_lab = lab; d_off = 0 } in
   p.x_def <- Some d; add_def d env
 
+let store_capt_sources p env capts =
+  (lookup_def env p).d_kind <- ProcDef (List.map (fun (x,t) -> lookup x env) capts)
+
 (* |check_proc| -- check a procedure body *)
 let rec check_proc lev env (Proc (p, formals, Block (vars, procs, body), rtype)) =
   err_line := p.x_line;
+  let capts = to_list (captured_vars_s env body) in store_capt_sources p env capts;
   let env' = 
-    List.fold_left (declare_arg lev) (new_block env) (serialize formals) in
+    List.fold_left (declare_arg lev) (new_block env) (serialize (capts@formals)) in
   let env'' = 
     List.fold_left (declare_local lev) env' (serialize vars) in
   let env''' = 

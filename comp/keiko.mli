@@ -30,14 +30,14 @@ type code =
   | JUMP of codelab             (* Unconditional branch (dest) *)
   | JUMPB of bool * codelab     (* Branch on boolean (val, dest) *)
   | JUMPC of op * codelab       (* Conditional branch (op, dest) *)
-  | PCALL of int                (* Call procedure *)
-  | PCALLW of int               (* Proc call with result (nargs) *)
+  | PCALL                       (* Call procedure *)
+  | PCALLW                      (* Proc call with result *)
   | RETURNW                     (* Return from procedure *)
   | BOUND of int                (* Bounds check *)
   | CASEJUMP of int             (* Case jump (num cases) *)
   | CASEARM of int * codelab    (* Case value and label *)
-  | PACK                        (* Pack two values into one *)
-  | UNPACK                      (* Unpack one value into two *)
+  | PACK                        (* Pack a closure *)
+  | UNPACK                      (* Unpack a closure *)
 
   | LINE of int
   | SEQ of code list

@@ -23,7 +23,7 @@ type typ =
 (* |def| -- definitions in environment *)
 type def = 
   { d_tag : ident;              (* Name *)
-    d_kind : def_kind;          (* Definition *)
+    mutable d_kind : def_kind;  (* Definition *)
     d_type : typ;               (* Type *)
     d_level : int;              (* Nesting level *)
     d_lab : string;             (* Label if global *)
@@ -31,7 +31,7 @@ type def =
 
 and def_kind =
     VarDef                      (* Variable *)
-  | ProcDef                     (* Procedure *)
+  | ProcDef of def list         (* Procedure *)
 
 let find_def x ds =
   let rec search =
@@ -60,3 +60,15 @@ let empty = Env ([], IdMap.empty)
 
 (* |new_block| -- add new block *)
 let new_block (Env (b, m)) = Env ([], m)
+
+module IdSet = Set.Make(struct type t = (ident * typ)  let compare = compare end)
+
+type varset = IdSet.t
+
+let empty_set = IdSet.empty
+
+let union = List.fold_left IdSet.union empty_set
+
+let singleton = IdSet.singleton
+
+let to_list = IdSet.elements

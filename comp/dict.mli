@@ -14,7 +14,7 @@ type typ =
 (* |def| -- definitions in environment *)
 type def = 
   { d_tag : ident;              (* Name *)
-    d_kind : def_kind;          (* Definition *)
+    mutable d_kind : def_kind;  (* Definition *)
     d_type : typ;               (* Type *)
     d_level : int;              (* Nesting level *)
     d_lab : string;             (* Label if global *)
@@ -22,7 +22,7 @@ type def =
 
 and def_kind =
     VarDef                      (* Variable *)
-  | ProcDef                     (* Procedure *)
+  | ProcDef of def list         (* Procedure *)
 
 type environment
 
@@ -38,3 +38,12 @@ val new_block : environment -> environment
 (* |empty| -- initial empty environment *)
 val empty : environment
 
+type varset
+
+val empty_set : varset
+
+val union : varset list -> varset
+
+val singleton : (ident * typ) -> varset
+
+val to_list : varset -> (ident * typ) list

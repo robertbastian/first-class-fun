@@ -36,14 +36,14 @@ type code =
   | JUMP of codelab             (* Unconditional branch (dest) *)
   | JUMPB of bool * codelab     (* Branch on boolean (val, dest) *)
   | JUMPC of op * codelab       (* Conditional branch (op, dest) *)
-  | PCALL of int                (* Call procedure *)
-  | PCALLW of int               (* Proc call with result (nargs) *)
+  | PCALL                       (* Call procedure *)
+  | PCALLW                      (* Proc call with result (nargs) *)
   | RETURNW                     (* Return from procedure *)
   | BOUND of int                (* Bounds check *)
   | CASEJUMP of int             (* Case jump (num cases) *)
   | CASEARM of int * codelab    (* Case value and label *)
-  | PACK                        (* Pack two values into one *)
-  | UNPACK                      (* Unpack one value into two *)
+  | PACK                        (* Pack a closure *)
+  | UNPACK                      (* Unpack a closure *)
 
   | LINE of int
   | SEQ of code list
@@ -81,8 +81,8 @@ let fInst =
     | JUMPB (b, l) ->   fMeta "$ $" 
                           [fStr (if b then "JUMPT" else "JUMPF"); fLab l]
     | JUMPC (w, l) ->   fMeta "J$ $" [fOp w; fLab l]
-    | PCALL n ->        fMeta "PCALL $" [fNum n]
-    | PCALLW n ->       fMeta "PCALLW $" [fNum n]
+    | PCALL ->          fStr "PCALL 0"
+    | PCALLW ->         fStr "PCALLW 0"
     | RETURNW ->        fStr "RETURNW"
     | BOUND n ->        fMeta "BOUND $" [fNum n]
     | CASEJUMP n ->     fMeta "CASEJUMP $" [fNum n]

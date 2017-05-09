@@ -513,11 +513,11 @@ inst TYPETEST 1         B.i {typetest($1.p, $2.p, $a)}
 # two operations, an ordinary CALL followed by a SLIDE; the return address 
 # of the called routine points to the SLIDE instruction, which is 
 # responsible for copying the result.
-equiv CALL 1            {JPROC, SLIDE $a}
-equiv CALLW 1           {JPROC, SLIDEW $a}
-equiv CALLQ 1           {JPROC, SLIDEQ $a}
-equiv CALLF 1           {JPROC, SLIDEF $a}
-equiv CALLD 1           {JPROC, SLIDED $a}
+equiv CALL 1            {SWAP, JPROC, SLIDE }
+equiv CALLW 1           {SWAP, JPROC, SLIDEW }
+equiv CALLQ 1           {SWAP, JPROC, SLIDEQ }
+equiv CALLF 1           {SWAP, JPROC, SLIDEF }
+equiv CALLD 1           {SWAP, JPROC, SLIDED }
 
 inst LINK 0             S1 {statlink = $1.p;}
 inst SAVELINK 0         S0 {fp[SL].p = statlink;}
@@ -569,12 +569,12 @@ defs {
 #define slide(nargs) sp += HEAD + nargs; cond_break();
 }
 
-inst SLIDE 1            S0 {slide($a);}
-inst SLIDEW 1           S0 {slide($a); sp--; sp[0].i = ob_res.i;}
-inst SLIDED 1           S0 {slide($a); sp -= 2; 
+inst SLIDE 0            S0 {slide(1+sp[HEAD].i);}
+inst SLIDEW 0           S0 {slide(1+sp[HEAD].i); sp--; sp[0].i = ob_res.i;}
+inst SLIDED 0           S0 {slide(1+sp[HEAD].i); sp -= 2; 
                                 putdbl(&sp[0], getdbl(&ob_dres));}
-inst SLIDEF 1           S0 {slide($a); sp--; sp[0].f = ob_res.f;}
-inst SLIDEQ 1           S0 {slide($a); sp -= 2;
+inst SLIDEF 0           S0 {slide(1+sp[HEAD].i); sp--; sp[0].f = ob_res.f;}
+inst SLIDEQ 0           S0 {slide(1+sp[HEAD].i); sp -= 2;
                                 putlong(&sp[0], getlong(&ob_dres));}
 
 equiv RETURNW 0         {RESULTW, RETURN}
@@ -653,9 +653,22 @@ defs {
 inst CASEJUMP 1         S1  {casejump($1.i, $a);}
 zinst CASEARM 2R
 
-inst PACK 0             B.i {pack($2.p, $1.x)}
-inst UNPACK 0           S0 {sp--; sp[0].p = getcode(sp[1].i); 
-                                   sp[1].x = getenvt(sp[1].i);}
+inst PACK 0             S0  {
+                             int size = 2+sp[0].i;
+                             value* c = (value*) malloc(4*(1+size));
+                             c[0].i = 1; // refcount
+                             memcpy(&c[1], &sp[0], 4*size);
+                             sp += size - 1;
+                             sp[0].p = c;
+                         }
+inst UNPACK 0           S0 { value* c = sp[0].p;
+                             int size = 2 + c[1].i;
+                             sp -= size - 1;
+                             memcpy (&sp[0], &c[1], 4*size);
+                             if (--c[0].i == 0){
+                                //free(c);
+                             }
+                         }
 }
 
 zinst REG 0

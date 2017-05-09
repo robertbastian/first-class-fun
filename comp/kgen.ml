@@ -12,27 +12,13 @@ let level = ref 0
 let slink = 12
 
 
-let rec rep n x = if n = 0 then [] else x::(rep (n-1) x)
-
 (* |gen_addr| -- generate code to push address of a variable *)
 let gen_addr d =
   if d.d_level = 0 then
     GLOBAL d.d_lab
   else
-    SEQ [LOCAL 0; SEQ (rep (!level-d.d_level) (SEQ [CONST slink; BINOP PlusA; LOADW])); CONST d.d_off; BINOP PlusA]
+    SEQ [LOCAL 0; CONST d.d_off; BINOP PlusA]
     
-
-let rec find_sp callLevel =
-  (* Child proc *)
-  if callLevel > !level then 
-    LOCAL 0
-  (* Same level *)
-  else if callLevel = !level then 
-    SEQ[LOCAL 0; CONST slink; BINOP PlusA; LOADW]
-  (* Somewhere above *)
-  else (* if callLevel < !level then *)
-    SEQ[find_sp (callLevel+1); CONST slink; BINOP PlusA; LOADW]
-
 (* |gen_expr| -- generate code for an expression *)
 let rec gen_expr =
   function
@@ -42,8 +28,9 @@ let rec gen_expr =
           match d.d_kind with
               VarDef ->
                 SEQ [LINE x.x_line; gen_addr d; LOADW]
-            | ProcDef ->
-                SEQ [LINE x.x_line; find_sp d.d_level; GLOBAL d.d_lab; PACK]
+            | ProcDef capts ->
+                let cvals = List.map (fun d -> SEQ [gen_addr d; LOADW]) capts in
+                SEQ [LINE x.x_line; SEQ (List.rev cvals); GLOBAL d.d_lab; CONST (List.length capts); PACK]
         end
     | Number x ->
         CONST x
@@ -54,7 +41,7 @@ let rec gen_expr =
         SEQ [gen_expr e1; gen_expr e2; BINOP w]
     | Call (e, args) -> 
         let frame = SEQ [gen_expr e; UNPACK] in
-        SEQ[SEQ (List.rev (List.map gen_expr args)); frame; PCALLW (List.length args)]
+        SEQ[SEQ (List.rev (List.map gen_expr args)); frame; CONST (List.length args); BINOP Plus; PCALLW]
 
 (* |gen_cond| -- generate code for short-circuit condition *)
 let rec gen_cond tlab flab e =
@@ -91,9 +78,9 @@ let rec gen_stmt =
            | _ -> failwith "assign"
         end
     | Print e ->
-        SEQ [gen_expr e; CONST 0; GLOBAL "Lib.Print"; PCALL 1]
+        SEQ [gen_expr e; GLOBAL "Lib.Print"; CONST 1; PCALL]
     | Newline ->
-        SEQ [CONST 0; GLOBAL "Lib.Newline"; PCALL 0]
+        SEQ [GLOBAL "Lib.Newline"; CONST 0; PCALL]
     | IfStmt (test, thenpt, elsept) ->
         let lab1 = label () and lab2 = label () and lab3 = label () in
         SEQ [gen_cond lab1 lab2 test; 
