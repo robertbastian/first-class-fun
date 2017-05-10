@@ -133,6 +133,9 @@ let translate (Program (Block (vars, procs, body))) =
   printf "PROC MAIN 0 0 0\n" [];
   let m = gen_stmt body in
   Keiko.output (if !optflag then Peepopt.optimise m else m);
+  List.iter (function (x,t) -> match t with 
+    FunType(_,_) -> printf "GLOBAL _$ \nDECPREF\nPOP 1\n" [fStr x]
+    | _ -> ()) vars;
   printf "RETURN\n" [];
   printf "END\n\n" [];
   List.iter gen_proc procs;
