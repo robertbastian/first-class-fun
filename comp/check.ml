@@ -88,6 +88,10 @@ let rec check_stmt rtype env =
         List.iter (check_stmt rtype env) ss
     | Assign (x, e) ->
         let d = lookup_def env x in
+        begin match d.d_type with
+          FunType(_,_) when d.d_level > 0 ->
+            sem_error "assigning function to non-global variable $" [fStr x.x_name]
+          | _ -> () end;
         let a = check_expr env e and t = d.d_type in
         if a <> t then
           sem_error "expected expression of type $, found type $" [fType t; fType a]
