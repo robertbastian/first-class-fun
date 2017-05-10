@@ -65,6 +65,10 @@ inst INDEXW 0           B.x {$1.x + ($2.i<<2)}
 inst INDEXD 0           B.x {$1.x + ($2.i<<3)}
 
 
+# Reference counting
+inst INCPREF 0         S0 { inc_ref_count(sp[0].p); }
+inst DECPREF 0         S0 { dec_ref_count((*sp[0].p).p); }
+
 # LOADS AND STORES
 
 # Load/store from address
@@ -74,10 +78,12 @@ inst LOADW 0            M.i {indir($1.x, int)}
 inst LOADS 0            M.i {indir($1.x, short)}
 inst LOADC 0            M.i {indir($1.x, uchar)}
 inst LOADF 0            M.f {indir($1.x, float)}
+equiv LOADP 0           {LOADW, INCPREF}
 inst STOREW 0           S2  {indir($2.x, int) = $1.i;}
 inst STORES 0           S2  {indir($2.x, short) = $1.i;}
 inst STOREC 0           S2  {indir($2.x, uchar) = $1.i;}
 inst STOREF 0           S2  {indir($2.x, float) = $1.f;}
+equiv STOREP 0          {DECPREF, STOREW}
 
 # Load/store local
 # LDLs n :: --> mem_s[fp+n]
@@ -513,21 +519,22 @@ inst TYPETEST 1         B.i {typetest($1.p, $2.p, $a)}
 # two operations, an ordinary CALL followed by a SLIDE; the return address 
 # of the called routine points to the SLIDE instruction, which is 
 # responsible for copying the result.
-equiv CALL 1            {SWAP, JPROC, SLIDE }
-equiv CALLW 1           {SWAP, JPROC, SLIDEW }
-equiv CALLQ 1           {SWAP, JPROC, SLIDEQ }
-equiv CALLF 1           {SWAP, JPROC, SLIDEF }
-equiv CALLD 1           {SWAP, JPROC, SLIDED }
+equiv CALL 1            {JPROC, SLIDE $a}
+equiv CALLW 1           {JPROC, SLIDEW $a}
+equiv CALLQ 1           {JPROC, SLIDEQ $a}
+equiv CALLF 1           {JPROC, SLIDEF $a}
+equiv CALLD 1           {JPROC, SLIDED $a}
 
 inst LINK 0             S1 {statlink = $1.p;}
 inst SAVELINK 0         S0 {fp[SL].p = statlink;}
 
 defs {
+#define frame_start() getcount(cp[CP_LOCALS].i)*4
 #define frame()                                                         \
      fp = sp;                                                           \
-     sp = (value *) ((uchar *) fp - cp[CP_FRAME].i);                    \
+     sp = (value *) ((uchar *) fp - frame_start());                     \
      if ((uchar *) sp < stack + SLIMIT) error(E_STACK, 0);              \
-     memset(sp, 0, cp[CP_FRAME].i);
+     memset(sp, 0, frame_start());
 
 #ifdef OBXDEB
 #define cond_break() \
@@ -566,15 +573,16 @@ inst JPROC 0 S0 {
 }
 
 defs {
-#define slide(nargs) sp += HEAD + nargs; cond_break();
+#define ncapts() getcount((sp[CP].p)[CP_CAPTS].i)
+#define slide(nargs) sp += HEAD + nargs + ncapts(); cond_break();
 }
 
-inst SLIDE 0            S0 {slide(1+sp[HEAD].i);}
-inst SLIDEW 0           S0 {slide(1+sp[HEAD].i); sp--; sp[0].i = ob_res.i;}
-inst SLIDED 0           S0 {slide(1+sp[HEAD].i); sp -= 2; 
+inst SLIDE 1            S0 {slide($a-1);}
+inst SLIDEW 1           S0 {slide($a-1); sp--; sp[0].i = ob_res.i;}
+inst SLIDED 1           S0 {slide($a-1); sp -= 2; 
                                 putdbl(&sp[0], getdbl(&ob_dres));}
-inst SLIDEF 0           S0 {slide(1+sp[HEAD].i); sp--; sp[0].f = ob_res.f;}
-inst SLIDEQ 0           S0 {slide(1+sp[HEAD].i); sp -= 2;
+inst SLIDEF 1           S0 {slide($a-1); sp--; sp[0].f = ob_res.f;}
+inst SLIDEQ 1           S0 {slide($a-1); sp -= 2;
                                 putlong(&sp[0], getlong(&ob_dres));}
 
 equiv RETURNW 0         {RESULTW, RETURN}
@@ -595,6 +603,18 @@ inst RETURN 0 S0 {
 #endif
           return;
      }
+
+     int num_l = getcount((fp[CP].p)[CP_LOCALS].i);
+     int map_l = getmap((fp[CP].p)[CP_LOCALS].i);
+     free_range(&fp[-num_l], num_l, map_l);
+
+     int num_c = getcount((fp[CP].p)[CP_CAPTS].i);
+     int map_c = getmap((fp[CP].p)[CP_CAPTS].i);
+     free_range(&fp[HEAD], num_c, map_c);
+
+     int num_a = getcount((fp[CP].p)[CP_ARGS].i);
+     int map_a = getmap((fp[CP].p)[CP_ARGS].i);     
+     free_range(&fp[HEAD+num_c], num_a, map_a);
 
      sp = fp; pc = sp[PC].x; fp = sp[FP].p; cp = fp[CP].p;
      do_find_proc;
@@ -654,20 +674,21 @@ inst CASEJUMP 1         S1  {casejump($1.i, $a);}
 zinst CASEARM 2R
 
 inst PACK 0             S0  {
-                             int size = 2+sp[0].i;
-                             value* c = (value*) malloc(4*(1+size));
-                             c[0].i = 1; // refcount
-                             memcpy(&c[1], &sp[0], 4*size);
-                             sp += size - 1;
+                             value* p = sp[0].p;
+                             value* c = (value*) make_env(p);
+                             int size = getcount(p[CP_CAPTS].i);
+                             memcpy(&c[CL_HEAD], &sp[1], 4*size);
+                             sp += size;
                              sp[0].p = c;
                          }
 inst UNPACK 0           S0 { value* c = sp[0].p;
-                             int size = 2 + c[1].i;
-                             sp -= size - 1;
-                             memcpy (&sp[0], &c[1], 4*size);
-                             if (--c[0].i == 0){
-                                //free(c);
-                             }
+                             value* p = c[CL_CODE].p;
+                             int size = getcount(p[CP_CAPTS].i);
+                             sp -= size;
+                             memcpy (&sp[1], &c[CL_HEAD], 4*size);
+                             sp[0].p = p;
+                             inc_all_ref_counts(c);
+                             dec_ref_count(c);
                          }
 }
 
@@ -685,7 +706,7 @@ dir DCONST ?
 dir QCONST ?
 dir GLOBAL ?
 dir LABEL ?
-dir PROC ????
+dir PROC ???????
 dir END 0
 dir PRIMDEF ????
 dir DEFINE ?

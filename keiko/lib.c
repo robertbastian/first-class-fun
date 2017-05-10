@@ -3,7 +3,7 @@
 
 unsigned prim_check = 0;
 
-#define args (fp + HEAD + 1)
+#define args (fp + HEAD)
 
 static void Lib_Print(value *sp) {
      value *fp = sp;

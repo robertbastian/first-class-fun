@@ -130,6 +130,10 @@ $$ jump table
      NEXT;
 #else
      while (TRUE) {
+     // printf("@ %08x: ", sp); for (value* i = sp0-1; i >= sp; i--){
+     //  printf("%x ", i[0].i);
+     // } printf("\n", sp);
+     // fflush(stdout);
 #ifdef TRACE
           if (dflag > 1) {
                int i;

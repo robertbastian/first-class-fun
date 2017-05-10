@@ -22,7 +22,7 @@ type def =
 
 and def_kind =
     VarDef                      (* Variable *)
-  | ProcDef of def list         (* Procedure *)
+  | ProcDef of def list * int * int * int (* Procedure *)
 
 type environment
 

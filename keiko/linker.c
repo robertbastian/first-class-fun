@@ -535,13 +535,13 @@ static phrase put_mark(symbol s) {
 
 /* const_head -- start of constant pool */
 static void const_head(int prim, int code, int reloc, 
-                       int frame, int stack, char *map) {
+                       int frame, int stack, int map) {
      data_value(prim, R_SUBR);  /* Primitive */
      data_value(code, reloc);   /* Entry point */
      data_value(0, R_WORD);     /* Code size */
      data_value(frame, R_WORD); /* Frame size in words */
      data_value(stack, R_WORD); /* Stack size in words */
-     data_word(map);            /* Frame map */
+     data_value(map, R_WORD);   /* Frame map */
      data_value(0, R_WORD);     /* Stack map table */
 }
 
@@ -686,7 +686,7 @@ static void do_directive(const char *dir, int n, char *rands[], int nrands) {
                int name = dloc + 4 * CP_CONST;
                char *s = rands[1] + 1;
 
-               const_head(DLTRAP, name, R_DATA, atoi(rands[2]), 0, rands[3]);
+               const_head(DLTRAP, name, R_DATA, atoi(rands[2]), 0, (int) rands[3]);
 
                assert(dloc == name);
                do { 
@@ -702,7 +702,7 @@ static void do_directive(const char *dir, int n, char *rands[], int nrands) {
                i = find_prim(rands[1]);
                if (i < 0)
                     error("unknown primitive %s", rands[1]);
-               const_head(i, 0, R_WORD, atoi(rands[2]), 0, rands[3]);
+               const_head(i, 0, R_WORD, atoi(rands[2]), 0, (int) rands[3]);
           }
           break;
 
@@ -711,8 +711,10 @@ static void do_directive(const char *dir, int n, char *rands[], int nrands) {
           this_proc = find_symbol(rands[0]);
           def_global(this_proc, DATA, dloc, X_PROC);
           proc_start = dloc;
-          const_head(INTERP, iloc, R_CODE, atoi(rands[1]), 
-                     atoi(rands[2]), rands[3]);
+          const_head(INTERP, iloc, R_CODE, 
+               mmapcount(atoi(rands[1]), atoi(rands[2])), 
+               mmapcount(atoi(rands[3]), atoi(rands[4])),
+               mmapcount(atoi(rands[5]), atoi(rands[6])));
           init_abuf();
           init_labels();
           nconsts = 0;

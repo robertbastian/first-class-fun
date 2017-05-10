@@ -28,6 +28,8 @@ type code =
   | STOREW                      (* Store word *)
   | LOADC                       (* Load character *)
   | STOREC                      (* Store character *)
+  | LOADP                       (* Load packed closure *)
+  | STOREP                      (* Store packed closure *)
   | LDGW of string              (* Load value (name) *)
   | STGW of string              (* Store (name) *)
   | MONOP of op                 (* Perform unary operation (op) *)
@@ -36,8 +38,8 @@ type code =
   | JUMP of codelab             (* Unconditional branch (dest) *)
   | JUMPB of bool * codelab     (* Branch on boolean (val, dest) *)
   | JUMPC of op * codelab       (* Conditional branch (op, dest) *)
-  | PCALL                       (* Call procedure *)
-  | PCALLW                      (* Proc call with result (nargs) *)
+  | PCALL of int                (* Call procedure *)
+  | PCALLW of int               (* Proc call with result (nargs) *)
   | RETURNW                     (* Return from procedure *)
   | BOUND of int                (* Bounds check *)
   | CASEJUMP of int             (* Case jump (num cases) *)
@@ -81,14 +83,16 @@ let fInst =
     | JUMPB (b, l) ->   fMeta "$ $" 
                           [fStr (if b then "JUMPT" else "JUMPF"); fLab l]
     | JUMPC (w, l) ->   fMeta "J$ $" [fOp w; fLab l]
-    | PCALL ->          fStr "PCALL 0"
-    | PCALLW ->         fStr "PCALLW 0"
+    | PCALL n ->        fMeta "PCALL $" [fNum n]
+    | PCALLW n ->       fMeta "PCALLW $" [fNum n]
     | RETURNW ->        fStr "RETURNW"
     | BOUND n ->        fMeta "BOUND $" [fNum n]
     | CASEJUMP n ->     fMeta "CASEJUMP $" [fNum n]
     | CASEARM (v, l) -> fMeta "CASEARM $ $" [fNum v; fLab l]
     | PACK ->           fStr "PACK"
     | UNPACK ->         fStr "UNPACK"
+    | LOADP ->          fStr "LOADP"
+    | STOREP ->         fStr "STOREP"
 
     | LINE n ->         fMeta "LINE $" [fNum n]
     | SEQ _ ->          fStr "SEQ ..."

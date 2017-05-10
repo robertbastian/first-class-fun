@@ -252,6 +252,16 @@ double flo_convq(longint);
 
 /* gc.c */
 
+value* make_env(value* cp);
+
+void inc_ref_count(value* env);
+
+void inc_all_ref_counts(value* env);
+
+void free_range(value* start, int length, int map);
+
+void dec_ref_count(value* env);
+
 /* scratch_alloc -- allocate memory that will not be freed */
 void *scratch_alloc(unsigned bytes, boolean atomic);
 
@@ -269,6 +279,7 @@ int gc_heap_size(void);
 
 extern boolean gcflag;
 void gc_init(void);
+void gc_finish(void);
 void gc_debug(char *flags);
 void gc_dump(void);
 

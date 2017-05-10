@@ -149,13 +149,25 @@ let rec captured_vars_s env =
   | Print e -> captured_vars_e env e
   | _ -> empty_set
 
+let is_packed_closure =
+  function
+    (_, FunType(_,_)) -> true
+  | _ -> false
+
+let rec make_bitmap =
+  function
+    [] -> 0
+  | b::bs -> (if b then 1 else 0) + 2*(make_bitmap bs)
+
+let make_ref_map decls =
+  make_bitmap (List.map is_packed_closure decls)
+
 (*
 Frame layout
 
         arg n
         ...
-fp+16:  arg 1
-fp+12:  static link
+fp+12:  arg 1
 fp+8:   current cp
 fp+4:   return addr
 fp:     dynamic link
@@ -164,7 +176,7 @@ fp-4:   local 1
         local m
 *)
 
-let arg_base = 16
+let arg_base = 12
 let loc_base = 0
 
 (* |declare_arg| -- declare a formal parameter *)
@@ -189,18 +201,22 @@ let declare_global env (x, t) =
 let declare_proc lev env (Proc (p, formals, body, rtype)) =
   let lab = sprintf "$_$" [fStr p.x_name; fNum (label ())] in
   let d = { d_tag = p.x_name; 
-                d_kind = ProcDef [];
+                d_kind = ProcDef ([], 0, 0, 0);
                 d_type = FunType((List.map snd formals), rtype);
                 d_level = lev; d_lab = lab; d_off = 0 } in
   p.x_def <- Some d; add_def d env
 
-let store_capt_sources p env capts =
-  (lookup_def env p).d_kind <- ProcDef (List.map (fun (x,t) -> lookup x env) capts)
+let finalise_proc_def p env formals vars capts =
+  (lookup_def env p).d_kind <- ProcDef (List.map (fun (x,t) -> lookup x env) capts,
+                                        make_ref_map formals,
+                                        make_ref_map vars,
+                                        make_ref_map capts)
 
 (* |check_proc| -- check a procedure body *)
 let rec check_proc lev env (Proc (p, formals, Block (vars, procs, body), rtype)) =
   err_line := p.x_line;
-  let capts = to_list (captured_vars_s env body) in store_capt_sources p env capts;
+  let capts = to_list (captured_vars_s env body) in
+  finalise_proc_def p env formals vars capts;
   let env' = 
     List.fold_left (declare_arg lev) (new_block env) (serialize (capts@formals)) in
   let env'' = 

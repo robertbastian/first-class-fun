@@ -18,7 +18,13 @@ let gen_addr d =
     GLOBAL d.d_lab
   else
     SEQ [LOCAL 0; CONST d.d_off; BINOP PlusA]
-    
+
+let gen_ldst d isLoad = SEQ [gen_addr d; match d.d_type, isLoad with
+      FunType(_,_), true -> LOADP
+    | FunType(_,_), false -> STOREP
+    | _, true -> LOADW
+    | _, false -> STOREW]
+
 (* |gen_expr| -- generate code for an expression *)
 let rec gen_expr =
   function
@@ -27,10 +33,10 @@ let rec gen_expr =
         begin
           match d.d_kind with
               VarDef ->
-                SEQ [LINE x.x_line; gen_addr d; LOADW]
-            | ProcDef capts ->
-                let cvals = List.map (fun d -> SEQ [gen_addr d; LOADW]) capts in
-                SEQ [LINE x.x_line; SEQ (List.rev cvals); GLOBAL d.d_lab; CONST (List.length capts); PACK]
+                SEQ [LINE x.x_line; gen_ldst d true]
+            | ProcDef (capts,_,_,_)->
+                let cvals = List.map (fun d -> gen_ldst d true) capts in
+                SEQ [LINE x.x_line; SEQ (List.rev cvals); GLOBAL d.d_lab; PACK]
         end
     | Number x ->
         CONST x
@@ -41,7 +47,7 @@ let rec gen_expr =
         SEQ [gen_expr e1; gen_expr e2; BINOP w]
     | Call (e, args) -> 
         let frame = SEQ [gen_expr e; UNPACK] in
-        SEQ[SEQ (List.rev (List.map gen_expr args)); frame; CONST (List.length args); BINOP Plus; PCALLW]
+        SEQ[SEQ (List.rev (List.map gen_expr args)); frame; PCALLW (List.length args)]
 
 (* |gen_cond| -- generate code for short-circuit condition *)
 let rec gen_cond tlab flab e =
@@ -74,13 +80,13 @@ let rec gen_stmt =
         begin
           match d.d_kind with
               VarDef ->
-                SEQ [gen_expr e; gen_addr d; STOREW]
+                SEQ [gen_expr e; gen_ldst d false]
            | _ -> failwith "assign"
         end
     | Print e ->
-        SEQ [gen_expr e; GLOBAL "Lib.Print"; CONST 1; PCALL]
+        SEQ [gen_expr e; GLOBAL "Lib.Print"; PCALL 1]
     | Newline ->
-        SEQ [GLOBAL "Lib.Newline"; CONST 0; PCALL]
+        SEQ [GLOBAL "Lib.Newline"; PCALL 0]
     | IfStmt (test, thenpt, elsept) ->
         let lab1 = label () and lab2 = label () and lab3 = label () in
         SEQ [gen_cond lab1 lab2 test; 
@@ -97,8 +103,12 @@ let rec gen_stmt =
 let rec gen_proc (Proc (p, formals, Block (vars, procs, body), rtype)) =
   let d = get_def p in
   level := d.d_level;
-  let code = gen_stmt body in
-  printf "PROC $ $ 0 0\n" [fStr d.d_lab; fNum (4 * List.length vars)];
+  let code = gen_stmt body in 
+  let ProcDef (capts, amap, lmap, cmap) = d.d_kind in
+  printf "PROC $ $ $ $ $ $ $\n" [fStr d.d_lab; 
+    fNum (List.length formals); fNum amap; 
+    fNum (List.length vars); fNum lmap; 
+    fNum (List.length capts); fNum cmap];
   Keiko.output (if !optflag then Peepopt.optimise code else code);
   printf "ERROR E_RETURN 0\n" [];
   printf "END\n\n" [];
@@ -107,9 +117,12 @@ let rec gen_proc (Proc (p, formals, Block (vars, procs, body), rtype)) =
 (* |translate| -- generate code for the whole program *)
 let translate (Program (Block (vars, procs, body))) =
   level := 0;
-  printf "PROC MAIN 0 0 0\n" [];
+  printf "PROC MAIN 0 0 0 0 0 0\n" [];
   let m = gen_stmt body in
   Keiko.output (if !optflag then Peepopt.optimise m else m);
+  List.iter (function (x,t) -> match t with 
+      FunType(_,_) -> printf "GLOBAL _$ \nDECPREF\nPOP 1\n" [fStr x]
+    | _ -> ()) vars;
   printf "RETURN\n" [];
   printf "END\n\n" [];
   List.iter gen_proc procs;

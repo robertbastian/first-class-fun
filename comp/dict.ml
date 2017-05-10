@@ -31,7 +31,7 @@ type def =
 
 and def_kind =
     VarDef                      (* Variable *)
-  | ProcDef of def list         (* Procedure *)
+  | ProcDef of def list * int * int * int (* Procedure *)
 
 let find_def x ds =
   let rec search =

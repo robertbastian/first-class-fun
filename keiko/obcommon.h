@@ -58,6 +58,10 @@ typedef int boolean;
 #define align_short(x) (x)
 #endif
 
+#define mmapcount(count, map) ((count << 27) | map)
+#define getcount(mapcount) (mapcount >> 27)
+#define getmap(mapcount) (mapcount & 0xffffff)
+
 typedef long long int longint;
 
 typedef union {
@@ -82,11 +86,15 @@ typedef union {
 #define CP_PRIM 0               /* Primitive address */
 #define CP_CODE 1               /* Bytecode address */
 #define CP_SIZE 2               /* Size of bytecode */
-#define CP_FRAME 3              /* Frame size */
-#define CP_STACK 4              /* Stack size */
-#define CP_MAP 5                /* Frame map */
+#define CP_ARGS 3               /* Frame size */
+#define CP_LOCALS 4             /* Stack size */
+#define CP_CAPTS 5              /* Frame map */
 #define CP_STKMAP 6             /* Stack map table */
 #define CP_CONST 7              /* First constant */
+
+#define CL_REFC 0               /* Reference count */
+#define CL_CODE 1               /* Code pointer */
+#define CL_HEAD 2               /* Size of closure head */
 
 /* Descriptor layout */
 #define DESC_MAP 0              /* Pointer map */

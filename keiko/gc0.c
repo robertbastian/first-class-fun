@@ -48,5 +48,60 @@ void *scratch_alloc(unsigned size, boolean atomic) {
 }
 
 /* gc_init -- initialise everything */
+int alloc_c = 0, dealloc_c = 0;
 void gc_init(void) {
+}
+
+void gc_finish(void) {
+  if (alloc_c != dealloc_c) {
+    printf("Memory leak:\nAllocated:   %d bytes\nDeallocated: %d bytes\n", alloc_c, dealloc_c);
+  }
+}
+
+void* alloc(unsigned size) {
+  alloc_c += size;
+  return malloc(size);
+}
+
+void dealloc(void* p, unsigned size) {
+  dealloc_c += size;
+  // free(p);
+}
+
+value* make_env(value* cp) {
+  value* env = (value*) alloc(4*(CL_HEAD+getcount(cp[CP_CAPTS].i)));
+  env[CL_REFC].i = 1;
+  env[CL_CODE].p = cp;
+  return env;
+}
+
+void inc_all_ref_counts(value* env) {
+  value* p = env[CL_CODE].p;
+  int size = getcount(p[CP_CAPTS].i);
+  int map = getmap(p[CP_CAPTS].i);
+  for (int i = 0; i < size; i++) {
+     if ((1 << i) & map) inc_ref_count(env[CL_HEAD+i].p);
+  } 
+}
+
+void inc_ref_count(value* env) {
+  if (env != 0) {
+    env[CL_REFC].i++;
+  }
+}
+
+void free_range(value* start, int length, int map) {
+  for (int i = 0; i < length; i++) {
+     if ((1 << i) & map) dec_ref_count(start[i].p);
+  }
+}
+
+void dec_ref_count(value* env) {
+  if (env != 0) {
+    if (--env[CL_REFC].i == 0) {
+      value* p = env[CL_CODE].p;
+      free_range(&env[CL_HEAD], getcount(p[CP_CAPTS].i), getmap(p[CP_CAPTS].i));
+      dealloc(env, 4*(CL_HEAD+getcount(p[CP_CAPTS].i)));
+    }
+  }
 }

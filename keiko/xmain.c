@@ -531,6 +531,7 @@ int main(int ac, char *av[]) {
           printf("Starting program at address %d\n", ((uchar *) entry) - dmem);
 #endif
      run(entry);
+     gc_finish();
      xmain_exit(0);
 }
 
