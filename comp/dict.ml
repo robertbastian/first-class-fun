@@ -65,5 +65,7 @@ let new_block (Env (b, m)) = Env ([], m)
 let lib_procs = [
   ("print", FunType([NumType], UnitType), "Lib.Print");
   ("print_b", FunType([BoolType], UnitType), "Lib.PrintB");
-  ("newline", FunType([], UnitType), "Lib.Newline")
+  ("newline", FunType([], UnitType), "Lib.Newline");
+  ("print_f", FunType([NumType; NumType], UnitType), "Lib.PrintF");
+  ("rand", FunType([NumType], NumType), "Lib.Rand")
 ]
