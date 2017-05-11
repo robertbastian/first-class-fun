@@ -19,6 +19,7 @@ type typ =
     BoolType
   | NumType
   | FunType of typ list * typ
+  | UnitType
 
 (* |def| -- definitions in environment *)
 type def = 
@@ -60,3 +61,9 @@ let empty = Env ([], IdMap.empty)
 
 (* |new_block| -- add new block *)
 let new_block (Env (b, m)) = Env ([], m)
+
+let lib_procs = [
+  ("print", FunType([NumType], UnitType), "Lib.Print");
+  ("print_b", FunType([BoolType], UnitType), "Lib.PrintB");
+  ("newline", FunType([], UnitType), "Lib.Newline")
+]

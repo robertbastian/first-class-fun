@@ -8,23 +8,24 @@ type name =
     x_line: int;                (* Line number *)
     mutable x_def: def option}  (* Definition in scope *)
 
+type calltype = { mutable c_returns: typ option }
+
 type expr = 
     Number of int
   | Bool of bool
   | Variable of name
   | Monop of Keiko.op * expr
   | Binop of Keiko.op * expr * expr
-  | Call of expr * expr list
+  | Call of expr * expr list * calltype
 
 type stmt =
     Skip
   | Seq of stmt list
   | Assign of name * expr
+  | Side of expr
   | Return of expr
   | IfStmt of expr * stmt * stmt
   | WhileStmt of expr * stmt
-  | Print of expr
-  | Newline
 
 type block = Block of (ident * typ) list * proc list * stmt
 

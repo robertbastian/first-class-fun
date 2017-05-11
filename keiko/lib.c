@@ -10,6 +10,10 @@ static void Lib_Print(value *sp) {
      printf(" %d", args[0].i);
 }
 
+static void Lib_Print_B(value *fp) {
+     printf(args[0].i ? " TRUE" : " FALSE");
+}
+
 static void Lib_Newline(value *sp) {
      printf("\n");
 }
@@ -20,11 +24,11 @@ void dltrap(value *sp) {
 }
 
 primitive *primtab[] = {
-     interp, dltrap, Lib_Print, Lib_Newline,
+     interp, dltrap, Lib_Print, Lib_Print_B, Lib_Newline,
      NULL
 };
 
 char *primname[] = {
-     "INTERP", "DLTRAP", "Lib_Print", "Lib_Newline"
+     "INTERP", "DLTRAP", "Lib_Print", "Lib_Print_B", "Lib_Newline"
 };
 

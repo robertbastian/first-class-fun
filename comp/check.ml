@@ -68,9 +68,10 @@ let rec check_expr env =
               else BoolType
           | _ -> sem_error "unknown binop" [] (* plusa? *)
         end
-    | Call (e, args) ->
+    | Call (e, args, c) ->
         match check_expr env e with
             FunType (atypes, rtype) ->
+              c.c_returns <- Some rtype;
               if List.length args <> List.length atypes then
                 sem_error "procedure needs $ arguments" 
                   [fNum (List.length atypes)]
@@ -89,8 +90,17 @@ let rec check_stmt rtype env =
     | Assign (x, e) ->
         let d = lookup_def env x in
         let a = check_expr env e and t = d.d_type in
-        if a <> t then
-          sem_error "expected expression of type $, found type $" [fType t; fType a]
+        begin match d.d_kind with 
+          ProcDef -> 
+            sem_error "procedure definition $ not assignable" [fStr x.x_name] 
+        | VarDef when a <> t ->
+            sem_error "expected expression of type $, found type $" [fType t; fType a]
+        | _ -> ()
+        end
+    | Side(e) -> 
+        let t = check_expr env e in
+        if t <> UnitType then
+          sem_error "non-unit expression cannot stand alone" []
     | Return e -> begin match rtype with
           None -> 
             sem_error "return statement only allowed in procedure" []
@@ -106,12 +116,6 @@ let rec check_stmt rtype env =
         if check_expr env test <> BoolType then 
           sem_error "guard needs to be boolean" [];
         check_stmt rtype env body; ()
-    | Print e -> begin match check_expr env e with
-          FunType(_,_) -> sem_error "procedure not printable" []
-        | _ -> ()
-      end
-    | Newline ->
-        ()
 
 (* |serialize| -- number a list, starting from 0 *)
 let serialize xs = 
@@ -157,6 +161,11 @@ let declare_global env (x, t) =
                 d_lab = sprintf "_$" [fStr x]; d_off = 0 } in
   add_def d env
 
+let declare_libs env (x, t, l) = 
+  let d = {d_tag = x; d_kind = ProcDef; d_type = t; d_level = 0;
+                d_lab = l; d_off = 0} in
+  add_def d env
+
 (* |declare_proc| -- declare a procedure *)
 let declare_proc lev env (Proc (p, formals, body, rtype)) =
   let lab = sprintf "$_$" [fStr p.x_name; fNum (label ())] in
@@ -182,5 +191,6 @@ let rec check_proc lev env (Proc (p, formals, Block (vars, procs, body), rtype))
 let annotate (Program (Block (vars, procs, body))) =
   let env = List.fold_left declare_global empty vars in
   let env' = List.fold_left (declare_proc 1) env procs in
-  List.iter (check_proc 1 env') procs;
-  check_stmt None env' body
+  let env'' = List.fold_left declare_libs env' lib_procs in
+  List.iter (check_proc 1 env'') procs;
+  check_stmt None env'' body

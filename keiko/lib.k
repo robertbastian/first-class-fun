@@ -4,4 +4,5 @@ PRIM Lib_Newline
 ENDHDR
 
 PRIMDEF Lib.Print Lib_Print 0 0
+PRIMDEF Lib.PrintB Lib_Print_B 0 0
 PRIMDEF Lib.Newline Lib_Newline 0 0

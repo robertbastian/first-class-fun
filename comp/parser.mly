@@ -4,8 +4,8 @@
 %token<int>     NUMBER
 %token<Keiko.op> MONOP MULOP ADDOP RELOP
 %token          MINUS LPAR RPAR COMMA SEMI DOT ASSIGN EOF BADTOK
-%token          BEGIN END VAR PRINT IF THEN ELSE WHILE DO PROC RETURN NEWLINE
-%token          COLON ARR NUM BOOL TRUE FALSE
+%token          BEGIN END VAR IF THEN ELSE WHILE DO PROC RETURN
+%token          COLON ARR NUM BOOL TRUE FALSE UNIT
 
 %start          program
 %type<Tree.program> program
@@ -44,9 +44,11 @@ typ :
   | NUM                                 { NumType }
   | LPAR product_type RPAR ARR typ      { FunType($2, $5) }
   | typ ARR typ                         { FunType([$1], $3) }
+  | UNIT                                { UnitType }
 
 product_type :
-    typ                                 { [$1] }
+    /* empty */                         { [] }
+  | typ                                 { [$1] }
   | typ COMMA product_type              { $1::$3 }
 
 formals :
@@ -63,12 +65,11 @@ stmt_list :
 stmt :
     /* empty */                         { Skip }
   | name ASSIGN expr                    { Assign ($1, $3) }
+  | expr                                { Side($1) }
   | RETURN expr                         { Return $2 }
   | IF expr THEN stmts END              { IfStmt ($2, $4, Skip) }
   | IF expr THEN stmts ELSE stmts END   { IfStmt ($2, $4, $6) }
   | WHILE expr DO stmts END             { WhileStmt ($2, $4) }
-  | PRINT expr                          { Print $2 } 
-  | NEWLINE                             { Newline } ;
 
 actuals :
     LPAR RPAR                           { [] }
@@ -96,7 +97,7 @@ factor :
   | TRUE                                { Bool true }
   | FALSE                               { Bool false }
   | name                                { Variable $1 }
-  | factor actuals                      { Call ($1, $2) }
+  | factor actuals                      { Call ($1, $2, {c_returns = None}) }
   | MONOP factor                        { Monop ($1, $2) }
   | MINUS factor                        { Monop (Uminus, $2) }
   | LPAR expr RPAR                      { $2 } ;
