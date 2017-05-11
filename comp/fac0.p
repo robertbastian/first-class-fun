@@ -14,7 +14,7 @@ end;
 
 begin
   n := 10; f := 1;
-  print fac(); newline
+  print(fac()); newline()
 end.
 
 (*<<

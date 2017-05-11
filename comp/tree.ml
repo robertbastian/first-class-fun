@@ -9,23 +9,24 @@ type name =
     x_line: int;                (* Line number *)
     mutable x_def: def option } (* Definition in scope *)
 
+type calltype = { mutable c_returns: typ option }
+
 type expr = 
     Number of int
   | Bool of bool
   | Variable of name
   | Monop of Keiko.op * expr
   | Binop of Keiko.op * expr * expr
-  | Call of expr * expr list
+  | Call of expr * expr list * calltype
 
 type stmt =
     Skip
   | Seq of stmt list
   | Assign of name * expr
+  | Side of expr
   | Return of expr
   | IfStmt of expr * stmt * stmt
   | WhileStmt of expr * stmt
-  | Print of expr
-  | Newline
 
 type block = Block of (ident * typ) list * proc list * stmt
 
@@ -68,6 +69,7 @@ let rec fType =
     NumType -> fStr "num"
   | BoolType -> fStr "bool"
   | FunType (atypes, rtype) -> fMeta "($) -> $" [fList_(fType) atypes; fType rtype]
+  | UnitType -> fStr "unit"
 
 let fDecl (id,t) = fMeta "$: $" [fStr id; fType t]
 
@@ -83,7 +85,7 @@ let rec fExpr =
         fMeta "Monop_($, $)" [fStr (Keiko.op_name w); fExpr e1]
     | Binop (w, e1, e2) -> 
         fMeta "Binop_($, $, $)" [fStr (Keiko.op_name w); fExpr e1; fExpr e2]
-    | Call (e, es) ->
+    | Call (e, es, _) ->
         fMeta "Call_($, $)" [fExpr e; fList(fExpr) es]
 
 let rec fStmt = 
@@ -94,12 +96,10 @@ let rec fStmt =
         fMeta "Seq_$" [fList(fStmt) ss]
     | Assign (x, e) -> 
         fMeta "Assign_($, $)" [fName x; fExpr e]
+    | Side expr ->
+        fMeta "Side_($)" [fExpr expr]
     | Return e ->
         fMeta "Return_($)" [fExpr e]
-    | Print e -> 
-        fMeta "Print_($)" [fExpr e]
-    | Newline -> 
-        fStr "Newline"
     | IfStmt (e, s1, s2) ->
         fMeta "IfStmt_($, $, $)" [fExpr e; fStmt s1; fStmt s2]
     | WhileStmt (e, s) -> 

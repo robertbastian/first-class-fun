@@ -14,12 +14,12 @@ let make_hash n ps =
 (* A little table to recognize keywords *)
 let kwtable = 
   make_hash 64
-    [ ("begin", BEGIN); ("end", END); ("var", VAR); ("print", PRINT);
+    [ ("begin", BEGIN); ("end", END); ("var", VAR);
       ("if", IF); ("then", THEN); ("else", ELSE); ("while", WHILE); 
-      ("do", DO); ("proc", PROC); ("return", RETURN); ("newline", NEWLINE);
+      ("do", DO); ("proc", PROC); ("return", RETURN);
       ("and", MULOP And); ("div", MULOP Div); ("or", ADDOP Or);
       ("not", MONOP Not); ("mod", MULOP Mod); ("num" , NUM); ("bool", BOOL);
-      ("true", TRUE); ("false", FALSE) ]
+      ("true", TRUE); ("false", FALSE); ("unit", UNIT) ]
 
 let lookup s = try Hashtbl.find kwtable s with Not_found -> IDENT s
 
