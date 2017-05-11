@@ -23,7 +23,7 @@ begin
 end;
 
 begin
-  print sumpow(5, 4); newline
+  print(sumpow(5, 4)); newline()
 end.
 
 (*<<

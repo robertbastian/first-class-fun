@@ -19,6 +19,7 @@ type typ =
     BoolType
   | NumType
   | FunType of typ list * typ
+  | UnitType
 
 (* |def| -- definitions in environment *)
 type def = 
@@ -72,3 +73,11 @@ let union = List.fold_left IdSet.union empty_set
 let singleton = IdSet.singleton
 
 let to_list = IdSet.elements
+
+let lib_procs = [
+  ("print", FunType([NumType], UnitType), "Lib.Print");
+  ("print_b", FunType([BoolType], UnitType), "Lib.PrintB");
+  ("newline", FunType([], UnitType), "Lib.Newline");
+  ("print_f", FunType([NumType; NumType], UnitType), "Lib.PrintF");
+  ("rand", FunType([NumType], NumType), "Lib.Rand")
+]

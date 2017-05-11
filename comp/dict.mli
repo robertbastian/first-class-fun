@@ -10,6 +10,7 @@ type typ =
     BoolType
   | NumType
   | FunType of typ list * typ
+  | UnitType
 
 (* |def| -- definitions in environment *)
 type def = 
@@ -47,3 +48,5 @@ val union : varset list -> varset
 val singleton : (ident * typ) -> varset
 
 val to_list : varset -> (ident * typ) list
+
+val lib_procs : (ident * typ * string) list

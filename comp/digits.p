@@ -17,7 +17,7 @@ proc search(k: num, n: num, avail: num->bool): num;
 
 begin
   if k = 10 then
-    print n; newline
+    print(n); newline()
   else
     d := 1;
     while d < 10 do
