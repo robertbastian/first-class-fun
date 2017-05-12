@@ -11,7 +11,7 @@ let level = ref 0
 
 let elink = 12
 
-let slink = 8
+let slink = 12
 
 
 let rec rep n x = if n = 0 then [] else x::(rep (n-1) x)
@@ -24,16 +24,16 @@ let gen_addr d =
     SEQ [LOCAL elink; LOADW; SEQ (rep (!level-d.d_level) (SEQ [CONST slink; BINOP PlusA; LOADW])); CONST d.d_off; BINOP PlusA]
     
 
-let rec find_sp callLevel loadInstr =
+let rec find_sp callLevel =
   (* Main *)
-  if !level = 0 then
+  if callLevel = 1 then
     CONST 0
   (* Child proc *)
   else if callLevel > !level then 
-    SEQ[LOCAL elink; loadInstr]
+    SEQ [LOCAL elink; LOADW]
   (* Somewhere above *)
   else (* if callLevel < !level then *)
-    SEQ[find_sp (callLevel+1) LOADW; CONST slink; BINOP PlusA; loadInstr]
+    SEQ[find_sp (callLevel+1); CONST slink; BINOP PlusA; LOADW]
 
 (* |gen_expr| -- generate code for an expression *)
 let rec gen_expr =
@@ -41,13 +41,11 @@ let rec gen_expr =
       Variable x ->
         let d = get_def x in
         begin
-          match d.d_kind, d.d_type with
-              VarDef, FunType(_,_) ->
-                SEQ [LINE x.x_line; gen_addr d; LOADP]
-            | VarDef, _ ->
+          match d.d_kind with
+            | VarDef ->
                 SEQ [LINE x.x_line; gen_addr d; LOADW]
-            | ProcDef, _ ->
-                SEQ [LINE x.x_line; find_sp d.d_level LOADE; GLOBAL d.d_lab; PACK]
+            | ProcDef ->
+                SEQ [LINE x.x_line; find_sp d.d_level; GLOBAL d.d_lab; PACK]
         end
     | Number x ->
         CONST x
@@ -90,10 +88,8 @@ let rec gen_stmt =
     | Assign (v, e) ->
         let d = get_def v in
         begin
-          match d.d_kind, d.d_type with
-              VarDef, FunType(_,_) ->
-                SEQ [gen_expr e; gen_addr d; STOREP]
-           |  VarDef, _ ->
+          match d.d_kind with
+              VarDef ->
                 SEQ [gen_expr e; gen_addr d; STOREW];
            | _ -> failwith "assign"
         end
@@ -133,9 +129,6 @@ let translate (Program (Block (vars, procs, body))) =
   printf "PROC MAIN 0 0 0\n" [];
   let m = gen_stmt body in
   Keiko.output (if !optflag then Peepopt.optimise m else m);
-  List.iter (function (x,t) -> match t with 
-    FunType(_,_) -> printf "GLOBAL _$ \nDECPREF\nPOP 1\n" [fStr x]
-    | _ -> ()) vars;
   printf "RETURN\n" [];
   printf "END\n\n" [];
   List.iter gen_proc procs;

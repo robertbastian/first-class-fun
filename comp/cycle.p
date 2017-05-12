@@ -17,7 +17,4 @@ end.
 (*<<
  3
  6
-Memory leak:
-Allocated:   56 bytes
-Deallocated: 32 bytes
 >>*)

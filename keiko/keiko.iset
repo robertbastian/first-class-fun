@@ -65,11 +65,6 @@ inst INDEXW 0           B.x {$1.x + ($2.i<<2)}
 inst INDEXD 0           B.x {$1.x + ($2.i<<3)}
 
 
-# Reference counting
-inst INCREF 0          S0 { inc_ref_count(sp[0].p); }
-inst INCPREF 0         S0 { inc_ref_count(getenvt(sp[0].i)); }
-inst DECPREF 0         S0 { dec_ref_count(getenvt(indir(sp[0].x, int))); }
-
 # LOADS AND STORES
 
 # Load/store from address
@@ -79,13 +74,10 @@ inst LOADW 0            M.i {indir($1.x, int)}
 inst LOADS 0            M.i {indir($1.x, short)}
 inst LOADC 0            M.i {indir($1.x, uchar)}
 inst LOADF 0            M.f {indir($1.x, float)}
-equiv LOADP 0           {LOADW, INCPREF}
-equiv LOADE 0           {LOADW, INCREF}
 inst STOREW 0           S2  {indir($2.x, int) = $1.i;}
 inst STORES 0           S2  {indir($2.x, short) = $1.i;}
 inst STOREC 0           S2  {indir($2.x, uchar) = $1.i;}
 inst STOREF 0           S2  {indir($2.x, float) = $1.f;}
-equiv STOREP 0          {DECPREF, STOREW}
 
 # Load/store local
 # LDLs n :: --> mem_s[fp+n]
@@ -521,25 +513,27 @@ inst TYPETEST 1         B.i {typetest($1.p, $2.p, $a)}
 # two operations, an ordinary CALL followed by a SLIDE; the return address 
 # of the called routine points to the SLIDE instruction, which is 
 # responsible for copying the result.
-equiv CALL 1            {JPROC, SLIDE $a}
-equiv CALLW 1           {JPROC, SLIDEW $a}
-equiv CALLQ 1           {JPROC, SLIDEQ $a}
-equiv CALLF 1           {JPROC, SLIDEF $a}
-equiv CALLD 1           {JPROC, SLIDED $a}
+equiv CALL 1            {JPROC $a, SLIDE}
+equiv CALLW 1           {JPROC $a, SLIDEW}
+equiv CALLQ 1           {JPROC $a, SLIDEQ}
+equiv CALLF 1           {JPROC $a, SLIDEF}
+equiv CALLD 1           {JPROC $a, SLIDED}
 
 inst LINK 0             S1 {statlink = $1.p;}
 inst SAVELINK 0         S0 {fp[SL].p = statlink;}
 
 defs {
 #define frame()                                                         \
-     fp = sp;                                                           \
-     if (sp != sp0) {                                                   \
-        value* env = make_env(cp, sp[HEAD].p);                          \
+    if (sp != sp0) {                                                    \
+        value* env = make_env(sp);                                      \
         int nargs = cp[CP_STACK].i;                                     \
-        memcpy(&env[AR_HEAD], &sp[HEAD+1], 4 * nargs);                  \
-        memset(&env[AR_HEAD+nargs], 0, 4 * (cp[CP_FRAME].i-nargs));     \
+        memcpy((uchar*) &env[AR_HEAD], (uchar*) &sp[HEAD+1], 4 * nargs);\
+        memset((uchar*) &env[AR_HEAD+nargs], 0, 4 * (cp[CP_FRAME].i-nargs));\
         sp[HEAD].p = env;                                               \
-    }
+        memmove(sp + nargs, sp, FRAME_SHIFT);                           \
+        sp += nargs;                                                    \
+    }                                                                   \
+    fp = sp;
 
 #ifdef OBXDEB
 #define cond_break() \
@@ -550,7 +544,7 @@ defs {
 #endif
 }
 
-inst JPROC 0 S0 {
+inst JPROC 1 S0 {
      value *p = sp[0].p;
      sp -= HEAD-1; sp[FP].p = fp; sp[PC].x = pc; sp[CP].p = p;
      if (p[CP_PRIM].z != interp) {
@@ -565,6 +559,7 @@ inst JPROC 0 S0 {
           (*(p[CP_PRIM].z))(sp);
 #ifdef OBXDEB
           prim_fp = NULL;
+          sp += $a;
 #endif
      }
      else {
@@ -578,15 +573,15 @@ inst JPROC 0 S0 {
 }
 
 defs {
-#define slide(nargs) sp += HEAD + nargs; cond_break();
+#define slide() sp += HEAD+1; cond_break();
 }
 
-inst SLIDE 1            S0 {slide($a);}
-inst SLIDEW 1           S0 {slide($a); sp--; sp[0].i = ob_res.i;}
-inst SLIDED 1           S0 {slide($a); sp -= 2; 
+inst SLIDE 0            S0 {slide();}
+inst SLIDEW 0           S0 {slide(); sp--; sp[0].i = ob_res.i;}
+inst SLIDED 0           S0 {slide(); sp -= 2;
                                 putdbl(&sp[0], getdbl(&ob_dres));}
-inst SLIDEF 1           S0 {slide($a); sp--; sp[0].f = ob_res.f;}
-inst SLIDEQ 1           S0 {slide($a); sp -= 2;
+inst SLIDEF 0           S0 {slide(); sp--; sp[0].f = ob_res.f;}
+inst SLIDEQ 0           S0 {slide(); sp -= 2;
                                 putlong(&sp[0], getlong(&ob_dres));}
 
 equiv RETURNW 0         {RESULTW, RETURN}
@@ -609,7 +604,6 @@ inst RETURN 0 S0 {
      }
 
      sp = fp; pc = sp[PC].x; fp = sp[FP].p; cp = fp[CP].p;
-     if (sp != sp0) dec_ref_count(sp[HEAD].p);
      do_find_proc;
 #ifdef PROFILE
      prof_exit(cp, ticks);

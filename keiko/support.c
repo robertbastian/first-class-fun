@@ -207,29 +207,48 @@ proc find_symbol(value *p, proc *table, int nelem) {
 value *clotab[256];
 int nclo = 0;
 
-// BEGIN HACK
-
-typedef struct closure {
-     value* code;
-     value* env;
-} closure;
-
 int pack(value *code, value *env) {
-     closure* c = (closure*) malloc(sizeof(closure));
-     c->code = code;
-     c->env = env;
-     return (unsigned) c;
+     unsigned tag, val;
+
+     for (tag = 0; tag < nclo; tag++)
+          if (clotab[tag] == code) break;
+
+     if (tag == nclo) {
+          if (nclo == 256) panic("Out of closure tags");
+          clotab[nclo++] = code;
+     }
+
+     // if (env != NULL && (env <= (heap0-1) || env > (heap0-1) + heap_size)) 
+     //      panic("Bad luck in pack");
+
+     // if (env != NULL && (env > stack && env <= stack + stack_size)){
+     //      panic("very Bad luck in pack");
+     // }
+
+     val = env == NULL ? 0xffffff : env - heap0;
+
+     return (tag << 24) | val;
 }
 
 value *getcode(int word) {
-     return word == 0 ? 0 : ((closure*) word)->code;
+     unsigned tag = ((unsigned) word) >> 24;
+     return clotab[tag];
 }
 
 value *getenvt(int word) {
-     return word == 0 ? 0 :((closure*) word)->env;
+     unsigned val = ((unsigned) word) & 0xffffff;
+     return (val == 0xffffff ? NULL : heap0 + val);
 }
 
-// END HACK
+
+int might_be_packed(int word) {
+     value* env = getenvt(word);
+     return (env != NULL && 
+             (env <= heap0 || env > heap0 + heap_size) &&
+             (unsigned) env % 4 == 0 &&
+             env[AR_MARK].i == 0 &&
+             env[AR_BKPTR].i == 0);
+}
      
 void pack_closure(value *sp) {
      sp[1].i = pack(sp[0].p, sp[1].p);

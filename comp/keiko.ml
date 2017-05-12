@@ -28,9 +28,6 @@ type code =
   | STOREW                      (* Store word *)
   | LOADC                       (* Load character *)
   | STOREC                      (* Store character *)
-  | LOADP                       (* Load packed closure *)
-  | STOREP                      (* Store packed closure *)
-  | LOADE                       (* Load environment pointer *)
   | LDGW of string              (* Load value (name) *)
   | STGW of string              (* Store (name) *)
   | MONOP of op                 (* Perform unary operation (op) *)
@@ -92,9 +89,6 @@ let fInst =
     | CASEARM (v, l) -> fMeta "CASEARM $ $" [fNum v; fLab l]
     | PACK ->           fStr "PACK"
     | UNPACK ->         fStr "UNPACK"
-    | LOADP ->          fStr "LOADP"
-    | STOREP ->         fStr "STOREP"
-    | LOADE ->          fStr "LOADE"
 
     | LINE n ->         fMeta "LINE $" [fNum n]
     | SEQ _ ->          fStr "SEQ ..."

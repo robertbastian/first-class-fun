@@ -104,8 +104,10 @@ struct _opcode {
 /* Global variables */
 EXTERN uchar *imem, *dmem;      /* Instruction and data memory arrays */
 EXTERN uchar *stack;            /* Program stack */
+EXTERN value *heap0;
 EXTERN int code_size;           /* Size of program code */
 EXTERN int stack_size;          /* Size of main stack */
+EXTERN int heap_size;
 EXTERN char *libpath;           /* Path to dynamic library */
 EXTERN value *entry;            /* Program entry point */
 EXTERN value *gcmap;            /* Global pointer map */
@@ -203,7 +205,7 @@ void long_ext(value *sp);
 int pack(value *code, value *env);
 value *getcode(int word);
 value *getenvt(int word);
-
+int might_be_packed(int word);
 void pack_closure(value *sp);
 void unpack_closure(value *sp);
 #endif
@@ -252,7 +254,7 @@ double flo_convq(longint);
 
 /* gc.c */
 
-value* make_env(value* cp, value* sp);
+value* make_env(value* fp);
 
 void inc_ref_count(value* env);
 

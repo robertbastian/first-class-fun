@@ -48,57 +48,227 @@ void *scratch_alloc(unsigned size, boolean atomic) {
 }
 
 /* gc_init -- initialise everything */
-int alloc_c = 0, dealloc_c = 0;
+value* heap0;
+value* heap;
+value* scratch;
+value* heap_end;
+value* scratch_end;
+int heap_size = 512;
 void gc_init(void) {
+  heap0 = (value*) scratch_alloc(4*heap_size, TRUE);
+  memset((uchar*) heap0, 0, 4*heap_size);
+  heap = heap0;
+  scratch = heap0 + heap_size/2;
+  heap_end = heap;
+  scratch_end = scratch;
+}
+
+
+#define RED   "\x1B[31m"
+#define GRN   "\x1B[32m"
+#define RESET "\x1B[0m"
+void gc_dump() {
+  printf("\n");
+  for (value* hp = heap; hp < heap_end; hp++){
+    printf(GRN "%02x: %08x ", hp-heap0, hp[0].i);
+  }
+  for (value* hp = heap_end; hp < heap + heap_size/2; hp++){
+    printf(RESET "%02x: %08x ", hp-heap0, 0);
+  } printf("\n\n");
+
+  for (value* hp = scratch; hp < scratch_end; hp++){
+    printf(RED "%02x: %08x ", hp-heap0, hp[0].i);
+  } 
+  for (value* hp = scratch_end; hp < scratch + heap_size/2; hp++){
+    printf(RESET "%02x: %08x ", hp-heap0, 0);
+  } printf("\n\n");
 }
 
 void gc_finish(void) {
-  if (alloc_c != dealloc_c) {
-    printf("Memory leak:\nAllocated:   %d bytes\nDeallocated: %d bytes\n", alloc_c, dealloc_c);
+  free(heap0);
+}
+
+value* alloc(unsigned words, value* fp) {
+  if (&heap_end[words] >= heap + heap_size/2){
+    gc_collect(fp);
   }
+  if (&heap_end[words] >= heap + heap_size/2){
+    panic("heap to small");
+  }
+  value* p = heap_end;
+  heap_end += words;
+  return p;
 }
 
-// BEGIN HACK
-void* alloc(unsigned size) {
-  alloc_c += size;
-  return malloc(size);
-}
+#define vars(env) ((env[AR_CODE].p)[CP_FRAME].i)
+#define map(env) ((env[AR_CODE].p)[CP_MAP].i)
+#define is_ref(i, map) ((1 << (i)) & map)
+#define size(env) AR_HEAD+vars(env)
 
-void dealloc(void* p, unsigned size) {
-  dealloc_c += size;
-  free(p);
-}
-// END HACK
+void gc_mark_from_p(value* p) {
+  p[AR_BKPTR].p = NULL;
 
-value* make_env(value* cp, value* sp) {
-  value* env = (value*) alloc(4*(AR_HEAD+cp[CP_FRAME].i));
-  env[AR_REFC].i = 1;
-  env[AR_CODE].p = cp;
-  env[AR_SLINK].p = sp;
-  // printf("%x->%x (%x) created\n", (unsigned) env, (unsigned) env[AR_SLINK].p, (unsigned) env[AR_CODE].p);
-  return env;
-}
-
-void inc_ref_count(value* env) {
-  if (env != 0) env[AR_REFC].i++;
-}
-
-void dec_all_ref_counts(value* env) {
-  dec_ref_count(env[AR_SLINK].p);
-  for (int i = 0, n = (env[AR_CODE].p)[CP_FRAME].i; i < n; i++) {
-     if ((1 << i) & (env[AR_CODE].p)[CP_MAP].i) {
-         value* p = (value *) getenvt(env[AR_HEAD+i].i);
-         dec_ref_count(p);
-     }
-  } 
-}
-
-void dec_ref_count(value* env) {
-  if (env != 0) {
-    if (--env[AR_REFC].i == 0) {
-      // printf("%x->%x (%x) deleted\n", (unsigned) env, (unsigned) env[AR_SLINK].p, (unsigned) env[AR_CODE].p);
-      dec_all_ref_counts(env);
-      dealloc(env, 4*(AR_HEAD+(env[AR_CODE].p)[CP_FRAME].i));
+  // In AR_MARK we keep track of how many of the variables we have already
+  //  followed. In AR_BKPTR we keep track of where to go back to once we 
+  //  finished discovering this node.
+  while (p != NULL) {
+    if (p[AR_MARK].i == 0) {
+      // printf("Marking %02x\n",p-heap0);
+      p[AR_MARK].i = 1;
+      if (p[AR_SLINK].p != NULL) {
+        (p[AR_SLINK].p)[AR_BKPTR].p = p;
+        p = p[AR_SLINK].p;
+      }
+    } else {
+      //     offset is available          not a packed var
+      while (p[AR_MARK].i-1 < vars(p) && (!(is_ref(p[AR_MARK].i-1, map(p))) || 
+        // null pointer
+        getenvt(p[AR_HEAD+p[AR_MARK].i-1].i) == NULL ||
+        // already discovered
+        getenvt(p[AR_HEAD+p[AR_MARK].i-1].i)[AR_MARK].i)){
+          p[AR_MARK].i++;
+      }
+      if (p[AR_MARK].i-1 < vars(p)) {
+        value* pn = getenvt(p[AR_HEAD+p[AR_MARK].i-1].i);
+        pn[AR_BKPTR].p = p;
+        p = pn;
+      } else if (p[AR_MARK].i-1 == vars(p)) {
+        // have discovered all of this env
+        p = p[AR_BKPTR].p;
+      }
     }
   }
+}
+
+void gc_mark(value* fp) {
+
+  // frame is just being created, arguments are still on the stack
+  for (int i = 0, n = (fp[CP].p)[CP_STACK].i; i < n; i++){
+    if (is_ref(i, (fp[CP].p)[CP_MAP].i)) {
+      gc_mark_from_p(getenvt(fp[4+i].i));
+    }
+  }
+
+  // previous frames, have to follow env pointer and everything on the
+  // execution stack that looks like it might be a packed closure
+  value* frame = fp[FP].p;
+  while (frame[FP].p != NULL) {
+    gc_mark_from_p(frame[HEAD].p);
+    for (value* i = frame + FRAME_SHIFT / 4; i < frame[FP].p; i++){
+      if (might_be_packed(i[0].i)){
+        printf("ATTENTION SOMETHING MIGHT BE PACKED\n");
+        gc_mark_from_p(getenvt(i[0].i));
+      }
+    }
+    frame = frame[FP].p;
+  }
+}
+
+void redirect(value* x) {
+  if (x->p != NULL) {
+    // printf("@%p: %x -> %x\n", x, x->p-heap0, x->p[AR_BKPTR].p-heap0); 
+    x->p = x->p[AR_BKPTR].p;
+  }
+}
+
+void redirect_pack(value* x) {
+  unsigned old = x->i;
+  value* env = getenvt(old);
+  value* new = env ? env[AR_BKPTR].p : NULL;
+  if (env){
+    x->i = pack(getcode(old),new);
+  }
+  // printf("@%x: %x -u> %x -> %x -p> %x\n", x-heap0, old, env-heap0, new-heap0, x->i);
+}
+
+
+void gc_redirect_stack(value* fp) {
+
+  for (int i = 0, n = (fp[CP].p)[CP_STACK].i; i < n; i++){
+    if (is_ref(i, (fp[CP].p)[CP_MAP].i)) redirect_pack(&fp[4+i]);
+  }
+
+
+  value* frame = fp[FP].p;
+  while (frame[FP].p != NULL) {
+    redirect(&frame[HEAD]);
+    for (value* i = frame + FRAME_SHIFT / 4; i < frame[FP].p; i++){
+      if (might_be_packed(i->i)) redirect_pack(i);
+    }
+    frame = frame[FP].p;
+  }
+}
+
+void gc_redirect_heap() {
+
+  value* p = scratch;
+  while (p < scratch_end) {
+    p[AR_MARK].i = 0;
+    redirect(&p[AR_SLINK]);
+
+    for (int i = 0, n = vars(p); i < n; i++) {
+      if (is_ref(i, map(p))) redirect_pack(&p[AR_HEAD+i]);
+    }
+    p += size(p);
+  }
+}
+
+void gc_move_space(){
+  value* heappointer = heap;
+  value* scratchpointer = scratch;
+
+  // go through all of the heap and copy active parts to scratch
+  while (heappointer < heap_end) {
+    // if pointer is still accessible
+    if (heappointer[AR_MARK].i) {
+      // move into scratch
+      // printf("Copying %d bytes %02x -> %02x\n", size(heappointer), heappointer - heap0, scratchpointer -heap0);
+      for (int i = 0; i < size(heappointer); i++) {
+        // if (heappointer - heap0 == 0x40 && scratchpointer - heap0 == 0x3e && i==4) gc_dump();
+        scratchpointer[i].i = heappointer[i].i;
+      }
+      // store new location
+      heappointer[AR_BKPTR].p = scratchpointer;
+      scratchpointer += size(heappointer);
+    }
+    heappointer += size(heappointer);
+  }
+  scratch_end = scratchpointer;
+  heap_end = heappointer;
+}
+
+
+void gc_collect(value* fp) {
+  // gc_dump();
+
+  gc_mark(fp);
+
+  // gc_dump();
+
+  gc_move_space();
+
+  // gc_dump();
+
+  gc_redirect_stack(fp);
+  gc_redirect_heap();
+
+  // gc_dump();
+
+  value* t = heap;
+  value* t_end = heap_end;
+  heap = scratch;
+  heap_end = scratch_end;
+  scratch = t;
+  scratch_end = t_end;
+
+  // printf("DONE COLLECTING\n");
+}
+
+
+value* make_env(value* fp) {
+  value* env = alloc(AR_HEAD+(fp[CP].p)[CP_FRAME].i, fp);
+  env[AR_MARK].i = 0;
+  env[AR_CODE].p = fp[CP].p;
+  env[AR_SLINK].p = fp[HEAD].p;
+  return env;
 }
