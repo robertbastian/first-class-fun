@@ -54,10 +54,14 @@ let rec gen_expr =
         SEQ [gen_expr e1; MONOP w]
     | Binop (w, e1, e2) ->
         SEQ [gen_expr e1; gen_expr e2; BINOP w]
-    | Call (e, args) -> 
-        let frame = SEQ [gen_expr e; UNPACK] in
+    | Call (e, args, c) ->
+        let call = begin match c.c_returns with 
+            Some(UnitType) -> PCALL (List.length args)
+          | Some(_)        -> PCALLW (List.length args)
+          | _ -> failwith "call not annotated"
+        end in let frame = SEQ [gen_expr e; UNPACK] in
         (* moving static link from stack to env-record, so keep ref count *)
-        SEQ[SEQ (List.rev (List.map gen_expr args)); frame; PCALLW (List.length args)]
+        SEQ[SEQ (List.rev (List.map gen_expr args)); frame; call]
 
 (* |gen_cond| -- generate code for short-circuit condition *)
 let rec gen_cond tlab flab e =
@@ -93,10 +97,7 @@ let rec gen_stmt =
                 SEQ [gen_expr e; gen_addr d; STOREW];
            | _ -> failwith "assign"
         end
-    | Print e ->
-        SEQ [gen_expr e; CONST 0; GLOBAL "Lib.Print"; PCALL 1]
-    | Newline ->
-        SEQ [CONST 0; GLOBAL "Lib.Newline"; PCALL 0]
+    | Side (e) -> gen_expr e
     | IfStmt (test, thenpt, elsept) ->
         let lab1 = label () and lab2 = label () and lab3 = label () in
         SEQ [gen_cond lab1 lab2 test; 
@@ -119,7 +120,7 @@ let rec gen_proc (Proc (p, formals, Block (vars, procs, body), rtype)) =
   printf "PROC $ $ $ $\n" [fStr d.d_lab; fNum (fs + ls); fNum fs;
     fNum d.d_rmap];
   Keiko.output (if !optflag then Peepopt.optimise code else code);
-  printf "ERROR E_RETURN 0\n" [];
+  printf "$" [fStr (match rtype with UnitType -> "RETURN\n" | _ -> "ERROR E_RETURN 0\n")];
   printf "END\n\n" [];
   List.iter gen_proc procs
 

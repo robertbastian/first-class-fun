@@ -6,13 +6,13 @@ proc f(y: num): num->num;
     return (z+1)
   end;
 begin
-  print g(y); newline;
+  print(g(y)); newline();
   return g
 end;
 
 begin
   k := f(2);
-  print k(5); newline;
+  print(k(5)); newline();
 end.
 
 (*<<

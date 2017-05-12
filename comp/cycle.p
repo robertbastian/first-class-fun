@@ -5,13 +5,13 @@ proc f(x: num, y: num): (num)->num;
     return (z+x)
   end;
 begin
-  print g(y); newline;
+  print(g(y)); newline();
   h := g;
   return g
 end;
 
 begin
-  print f(1,2)(5); newline;
+  print(f(1,2)(5)); newline();
 end.
 
 (*<<

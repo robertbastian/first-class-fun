@@ -16,7 +16,7 @@ proc square(x: num): num; begin return x * x end;
 
 begin
   p := compose(square, add2);
-  print p(2); newline
+  print(p(2)); newline()
 end.
 
 (*<<

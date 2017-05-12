@@ -11,7 +11,7 @@ begin
       y := y - x
     end
   end;
-  print x; newline
+  print(x); newline()
 end.
 
 (*<<

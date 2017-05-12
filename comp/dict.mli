@@ -10,6 +10,7 @@ type typ =
     BoolType
   | NumType
   | FunType of typ list * typ
+  | UnitType
 
 (* |def| -- definitions in environment *)
 type def = 
@@ -39,3 +40,4 @@ val new_block : environment -> environment
 (* |empty| -- initial empty environment *)
 val empty : environment
 
+val lib_procs : (ident * typ * string) list

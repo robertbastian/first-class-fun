@@ -1,9 +1,14 @@
-proc noret(): bool;
+proc noret(): num;
+begin
+end;
+
+proc unitret(): unit;
 begin
 end;
 
 begin
-  print noret()
+  unitret();
+  print(noret())
 end.
 
 (*<<

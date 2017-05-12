@@ -10,7 +10,7 @@ begin
 end;
 
 begin
-  print fac(10); newline
+  print(fac(10)); newline()
 end.
 
 (*<<
