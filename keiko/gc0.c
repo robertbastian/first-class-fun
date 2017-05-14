@@ -49,14 +49,14 @@ void *scratch_alloc(unsigned size, boolean atomic) {
 
 /* gc_init -- initialise everything */
 value* heap0;
+value* heap0_old;
 value* heap;
 value* scratch;
 value* heap_end;
 value* scratch_end;
 int heap_size = 512;
 void gc_init(void) {
-  heap0 = (value*) scratch_alloc(4*heap_size, TRUE);
-  memset((uchar*) heap0, 0, 4*heap_size);
+  heap0 = heap0_old = (value*) calloc(4, heap_size);
   heap = heap0;
   scratch = heap0 + heap_size/2;
   heap_end = heap;
@@ -68,24 +68,24 @@ void gc_init(void) {
 #define GRN   "\x1B[32m"
 #define RESET "\x1B[0m"
 void gc_dump() {
-  printf("\n");
+  printf("\n%x\n", (unsigned) heap);
   for (value* hp = heap; hp < heap_end; hp++){
-    printf(GRN "%02x: %08x ", hp-heap0, hp[0].i);
+    printf(GRN "%08x ", hp[0].i);
   }
   for (value* hp = heap_end; hp < heap + heap_size/2; hp++){
-    printf(RESET "%02x: %08x ", hp-heap0, 0);
-  } printf("\n\n");
+    printf(RESET "%08x ", 0);
+  } printf("\n%x\n", (unsigned) scratch);
 
   for (value* hp = scratch; hp < scratch_end; hp++){
-    printf(RED "%02x: %08x ", hp-heap0, hp[0].i);
+    printf(RED "%08x ", hp[0].i);
   } 
   for (value* hp = scratch_end; hp < scratch + heap_size/2; hp++){
-    printf(RESET "%02x: %08x ", hp-heap0, 0);
+    printf(RESET "%08x ", 0);
   } printf("\n\n");
 }
 
 void gc_finish(void) {
-  free(heap0);
+  free((void*) heap0);
 }
 
 value* alloc(unsigned words, value* fp) {
@@ -105,7 +105,9 @@ value* alloc(unsigned words, value* fp) {
 #define is_ref(i, map) ((1 << (i)) & map)
 #define size(env) AR_HEAD+vars(env)
 
+int total_words;
 void gc_mark_from_p(value* p) {
+  total_words += size(p);
   p[AR_BKPTR].p = NULL;
 
   // In AR_MARK we keep track of how many of the variables we have already
@@ -115,7 +117,7 @@ void gc_mark_from_p(value* p) {
     if (p[AR_MARK].i == 0) {
       // printf("Marking %02x\n",p-heap0);
       p[AR_MARK].i = 1;
-      if (p[AR_SLINK].p != NULL) {
+      if (p[AR_SLINK].p != NULL && (p[AR_SLINK].p)[AR_MARK].i == 0) {
         (p[AR_SLINK].p)[AR_BKPTR].p = p;
         p = p[AR_SLINK].p;
       }
@@ -123,13 +125,13 @@ void gc_mark_from_p(value* p) {
       //     offset is available          not a packed var
       while (p[AR_MARK].i-1 < vars(p) && (!(is_ref(p[AR_MARK].i-1, map(p))) || 
         // null pointer
-        getenvt(p[AR_HEAD+p[AR_MARK].i-1].i) == NULL ||
+        getenvt(p[AR_HEAD+p[AR_MARK].i-1].i, heap0_old) == NULL ||
         // already discovered
-        getenvt(p[AR_HEAD+p[AR_MARK].i-1].i)[AR_MARK].i)){
+        getenvt(p[AR_HEAD+p[AR_MARK].i-1].i, heap0_old)[AR_MARK].i)){
           p[AR_MARK].i++;
       }
       if (p[AR_MARK].i-1 < vars(p)) {
-        value* pn = getenvt(p[AR_HEAD+p[AR_MARK].i-1].i);
+        value* pn = getenvt(p[AR_HEAD+p[AR_MARK].i-1].i, heap0_old);
         pn[AR_BKPTR].p = p;
         p = pn;
       } else if (p[AR_MARK].i-1 == vars(p)) {
@@ -142,25 +144,28 @@ void gc_mark_from_p(value* p) {
 
 void gc_mark(value* fp) {
 
+  total_words = 0;
+  value* estack = &fp[4+(fp[CP].p)[CP_STACK].i];
+
+  if (fp[HEAD].p) gc_mark_from_p(fp[HEAD].p);
   // frame is just being created, arguments are still on the stack
-  for (int i = 0, n = (fp[CP].p)[CP_STACK].i; i < n; i++){
+  for (int i = 0; &fp[4+i] < estack; i++){
     if (is_ref(i, (fp[CP].p)[CP_MAP].i)) {
-      gc_mark_from_p(getenvt(fp[4+i].i));
+      gc_mark_from_p(getenvt(fp[4+i].i, heap0_old));
     }
   }
 
-  // previous frames, have to follow env pointer and everything on the
-  // execution stack that looks like it might be a packed closure
-  value* frame = fp[FP].p;
-  while (frame[FP].p != NULL) {
-    gc_mark_from_p(frame[HEAD].p);
-    for (value* i = frame + FRAME_SHIFT / 4; i < frame[FP].p; i++){
-      if (might_be_packed(i[0].i)){
-        printf("ATTENTION SOMETHING MIGHT BE PACKED\n");
-        gc_mark_from_p(getenvt(i[0].i));
+  fp = fp[FP].p;
+  while (fp[FP].p != NULL) {
+    if (fp[HEAD].p) gc_mark_from_p(fp[HEAD].p);
+    while (estack < fp){
+      if (might_be_packed(estack->i, heap0_old)){
+        gc_mark_from_p(getenvt(estack->i, heap0_old));
       }
+      estack++;
     }
-    frame = frame[FP].p;
+    estack += FRAME_SHIFT / 4; //skip frame header 
+    fp = fp[FP].p;
   }
 }
 
@@ -173,10 +178,10 @@ void redirect(value* x) {
 
 void redirect_pack(value* x) {
   unsigned old = x->i;
-  value* env = getenvt(old);
+  value* env = getenvt(old, heap0_old);
   value* new = env ? env[AR_BKPTR].p : NULL;
   if (env){
-    x->i = pack(getcode(old),new);
+    x->i = pack(getcode(old, heap0_old), new, heap0);
   }
   // printf("@%x: %x -u> %x -> %x -p> %x\n", x-heap0, old, env-heap0, new-heap0, x->i);
 }
@@ -184,18 +189,31 @@ void redirect_pack(value* x) {
 
 void gc_redirect_stack(value* fp) {
 
-  for (int i = 0, n = (fp[CP].p)[CP_STACK].i; i < n; i++){
-    if (is_ref(i, (fp[CP].p)[CP_MAP].i)) redirect_pack(&fp[4+i]);
+  value* estack = &fp[4+(fp[CP].p)[CP_STACK].i];
+
+  redirect(&fp[HEAD]);
+  // frame is just being created, arguments are still on the stack
+  for (int i = 0; &fp[4+i] < estack; i++){
+    if (is_ref(i, (fp[CP].p)[CP_MAP].i)) {
+      redirect_pack(&fp[4+i]);
+    }
   }
 
-
-  value* frame = fp[FP].p;
-  while (frame[FP].p != NULL) {
-    redirect(&frame[HEAD]);
-    for (value* i = frame + FRAME_SHIFT / 4; i < frame[FP].p; i++){
-      if (might_be_packed(i->i)) redirect_pack(i);
+  fp = fp[FP].p;
+  while (fp[FP].p != NULL) {
+    redirect(&fp[HEAD]);
+    while (estack < fp){
+      if (estack->p >= heap && estack->p <= heap+(heap0_old==heap0 ? heap_size / 2 : heap_size)) {
+        redirect(estack);
+      }
+      if (might_be_packed(estack->i, heap0_old)){
+        printf("ATTENTION SOMETHING MIGHT BE PACKED\n");
+        redirect_pack(estack);
+      }
+      estack++;
     }
-    frame = frame[FP].p;
+    estack += FRAME_SHIFT / 4; //skip frame header 
+    fp = fp[FP].p;
   }
 }
 
@@ -243,6 +261,15 @@ void gc_collect(value* fp) {
 
   gc_mark(fp);
 
+  if (total_words * 4 / 3 > heap_size / 2){
+    // over 75% used, double
+    heap_size *= 2;
+    heap0_old = heap0;
+    heap0 = (value*) calloc(4, heap_size);
+    memset((uchar*) heap0, 0, 4*heap_size);
+    scratch = scratch_end = heap0;
+  }
+
   // gc_dump();
 
   gc_move_space();
@@ -254,13 +281,20 @@ void gc_collect(value* fp) {
 
   // gc_dump();
 
-  value* t = heap;
-  value* t_end = heap_end;
-  heap = scratch;
-  heap_end = scratch_end;
-  scratch = t;
-  scratch_end = t_end;
+  if (heap0_old != heap0){
+    free((void*) heap0_old);
+    heap0_old = heap0;
+    heap = scratch;
+    heap_end = scratch_end;
+    scratch = scratch_end = heap + heap_size / 2;
+  } else {
+    value* t = heap;
+    heap = scratch;
+    heap_end = scratch_end;
+    scratch = scratch_end = t;
+  }
 
+  // gc_dump();
   // printf("DONE COLLECTING\n");
 }
 

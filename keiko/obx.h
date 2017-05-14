@@ -202,10 +202,10 @@ void long_flo(value *sp);
 void long_ext(value *sp);
 
 #ifdef SPECIALS
-int pack(value *code, value *env);
-value *getcode(int word);
-value *getenvt(int word);
-int might_be_packed(int word);
+int pack(value *code, value *env, value* heap);
+value *getcode(int word, value* heap);
+value *getenvt(int word, value* heap);
+int might_be_packed(int word, value* heap);
 void pack_closure(value *sp);
 void unpack_closure(value *sp);
 #endif

@@ -660,9 +660,9 @@ defs {
 inst CASEJUMP 1         S1  {casejump($1.i, $a);}
 zinst CASEARM 2R
 
-inst PACK 0             B.i {pack($2.p, $1.p)}
-inst UNPACK 0           S0 {sp--; sp[0].p = getcode(sp[1].i); 
-                                   sp[1].p = getenvt(sp[1].i);}
+inst PACK 0             B.i {pack($2.p, $1.p, heap0)}
+inst UNPACK 0           S0 {sp--; sp[0].p = getcode(sp[1].i, heap0); 
+                                   sp[1].p = getenvt(sp[1].i, heap0);}
 }
 
 zinst REG 0

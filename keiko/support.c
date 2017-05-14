@@ -207,7 +207,7 @@ proc find_symbol(value *p, proc *table, int nelem) {
 value *clotab[256];
 int nclo = 0;
 
-int pack(value *code, value *env) {
+int pack(value *code, value *env, value* heap) {
      unsigned tag, val;
 
      for (tag = 0; tag < nclo; tag++)
@@ -218,45 +218,48 @@ int pack(value *code, value *env) {
           clotab[nclo++] = code;
      }
 
-     // if (env != NULL && (env <= (heap0-1) || env > (heap0-1) + heap_size)) 
-     //      panic("Bad luck in pack");
+     if (env != NULL && (env < heap || env >= heap + heap_size)){
+          panic("Bad luck in pack");
+     }
 
-     // if (env != NULL && (env > stack && env <= stack + stack_size)){
-     //      panic("very Bad luck in pack");
-     // }
+     if (env != NULL && heap_size > 0xffffff){
+          panic("Very bad luck in pack");
+     }
 
-     val = env == NULL ? 0xffffff : env - heap0;
+     val = env == NULL ? 0 : (~(env - heap) & 0xffffff);
 
      return (tag << 24) | val;
 }
 
-value *getcode(int word) {
+value *getcode(int word, value* heap) {
      unsigned tag = ((unsigned) word) >> 24;
      return clotab[tag];
 }
 
-value *getenvt(int word) {
+value *getenvt(int word, value* heap) {
      unsigned val = ((unsigned) word) & 0xffffff;
-     return (val == 0xffffff ? NULL : heap0 + val);
+     return (val == 0 ? NULL : heap + ((~val) & 0xffffff));
 }
 
 
-int might_be_packed(int word) {
-     value* env = getenvt(word);
+int might_be_packed(int word, value* heap) {
+     if (word >> 24 >= nclo) return FALSE;
+     value* env = getenvt(word, heap);
      return (env != NULL && 
-             (env <= heap0 || env > heap0 + heap_size) &&
+             (env >= heap && env < heap + heap_size) &&
              (unsigned) env % 4 == 0 &&
              env[AR_MARK].i == 0 &&
-             env[AR_BKPTR].i == 0);
+             env[AR_BKPTR].i == 0 && 
+             env[AR_CODE].i != 0);
 }
      
 void pack_closure(value *sp) {
-     sp[1].i = pack(sp[0].p, sp[1].p);
+     sp[1].i = pack(sp[0].p, sp[1].p, heap0);
 }
 
 void unpack_closure(value *sp) {
      sp--;
-     sp[0].p = getcode(sp[1].i);
-     sp[1].p = getenvt(sp[1].i);
+     sp[0].p = getcode(sp[1].i, heap0);
+     sp[1].p = getenvt(sp[1].i, heap0);
 }
 #endif
