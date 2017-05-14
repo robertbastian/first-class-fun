@@ -248,8 +248,6 @@ int might_be_packed(int word, value* heap) {
      return (env != NULL && 
              (env >= heap && env < heap + heap_size) &&
              (unsigned) env % 4 == 0 &&
-             env[AR_MARK].i == 0 &&
-             env[AR_BKPTR].i == 0 && 
              env[AR_CODE].i != 0);
 }
      

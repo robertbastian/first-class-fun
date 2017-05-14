@@ -52,35 +52,33 @@ value* heap0;
 value* heap0_old;
 value* heap;
 value* scratch;
+value* scratch_old;
 value* heap_end;
 value* scratch_end;
 int heap_size = 512;
 void gc_init(void) {
   heap0 = heap0_old = (value*) calloc(4, heap_size);
-  heap = heap0;
-  scratch = heap0 + heap_size/2;
-  heap_end = heap;
-  scratch_end = scratch;
+  if (heap0 == NULL) panic("Out of memory");
+  heap = heap_end = heap0;
+  scratch = scratch_old = scratch_end = heap0 + heap_size/2;
 }
 
 
 #define RED   "\x1B[31m"
 #define GRN   "\x1B[32m"
+#define GRY   "\x1b[90m"
 #define RESET "\x1B[0m"
 void gc_dump() {
-  printf("\n%x\n", (unsigned) heap);
-  for (value* hp = heap; hp < heap_end; hp++){
-    printf(GRN "%08x ", hp[0].i);
-  }
-  for (value* hp = heap_end; hp < heap + heap_size/2; hp++){
-    printf(RESET "%08x ", 0);
-  } printf("\n%x\n", (unsigned) scratch);
-
-  for (value* hp = scratch; hp < scratch_end; hp++){
-    printf(RED "%08x ", hp[0].i);
-  } 
-  for (value* hp = scratch_end; hp < scratch + heap_size/2; hp++){
-    printf(RESET "%08x ", 0);
+  printf("%x / %x", (unsigned) heap, (unsigned) scratch);
+  for (int i = 0; i < heap_size/2; i+= 16){
+    printf("\n");
+    for (int j = 0; j < 16; j++){
+      printf(heap+i+j < heap_end ? GRN "%08x " RESET : GRY "%08x " RESET, heap[i+j].i);      
+    }
+    printf("\n");
+    for (int j = 0; j < 16; j++){
+      printf(GRY "%08x " RESET, scratch[i+j].i);
+    }
   } printf("\n\n");
 }
 
@@ -108,35 +106,38 @@ value* alloc(unsigned words, value* fp) {
 int total_words;
 void gc_mark_from_p(value* p) {
   total_words += size(p);
-  p[AR_BKPTR].p = NULL;
+
+  int o = scratch-heap;
+
+  p[AR_BKPTR(o)].p = NULL;
 
   // In AR_MARK we keep track of how many of the variables we have already
-  //  followed. In AR_BKPTR we keep track of where to go back to once we 
+  //  followed. In AR_BKPTR(o) we keep track of where to go back to once we 
   //  finished discovering this node.
   while (p != NULL) {
-    if (p[AR_MARK].i == 0) {
+    if (p[AR_MARK(o)].i == 0) {
       // printf("Marking %02x\n",p-heap0);
-      p[AR_MARK].i = 1;
-      if (p[AR_SLINK].p != NULL && (p[AR_SLINK].p)[AR_MARK].i == 0) {
-        (p[AR_SLINK].p)[AR_BKPTR].p = p;
+      p[AR_MARK(o)].i = 1;
+      if (p[AR_SLINK].p != NULL && (p[AR_SLINK].p)[AR_MARK(o)].i == 0) {
+        (p[AR_SLINK].p)[AR_BKPTR(o)].p = p;
         p = p[AR_SLINK].p;
       }
     } else {
       //     offset is available          not a packed var
-      while (p[AR_MARK].i-1 < vars(p) && (!(is_ref(p[AR_MARK].i-1, map(p))) || 
+      while (p[AR_MARK(o)].i-1 < vars(p) && (!(is_ref(p[AR_MARK(o)].i-1, map(p))) || 
         // null pointer
-        getenvt(p[AR_HEAD+p[AR_MARK].i-1].i, heap0_old) == NULL ||
+        getenvt(p[AR_HEAD+p[AR_MARK(o)].i-1].i, heap0_old) == NULL ||
         // already discovered
-        getenvt(p[AR_HEAD+p[AR_MARK].i-1].i, heap0_old)[AR_MARK].i)){
-          p[AR_MARK].i++;
+        getenvt(p[AR_HEAD+p[AR_MARK(o)].i-1].i, heap0_old)[AR_MARK(o)].i)){
+          p[AR_MARK(o)].i++;
       }
-      if (p[AR_MARK].i-1 < vars(p)) {
-        value* pn = getenvt(p[AR_HEAD+p[AR_MARK].i-1].i, heap0_old);
-        pn[AR_BKPTR].p = p;
+      if (p[AR_MARK(o)].i-1 < vars(p)) {
+        value* pn = getenvt(p[AR_HEAD+p[AR_MARK(o)].i-1].i, heap0_old);
+        pn[AR_BKPTR(o)].p = p;
         p = pn;
-      } else if (p[AR_MARK].i-1 == vars(p)) {
+      } else if (p[AR_MARK(o)].i-1 == vars(p)) {
         // have discovered all of this env
-        p = p[AR_BKPTR].p;
+        p = p[AR_BKPTR(o)].p;
       }
     }
   }
@@ -172,14 +173,14 @@ void gc_mark(value* fp) {
 void redirect(value* x) {
   if (x->p != NULL) {
     // printf("@%p: %x -> %x\n", x, x->p-heap0, x->p[AR_BKPTR].p-heap0); 
-    x->p = x->p[AR_BKPTR].p;
+    x->p = x->p[AR_BKPTR(0)].p;
   }
 }
 
 void redirect_pack(value* x) {
   unsigned old = x->i;
   value* env = getenvt(old, heap0_old);
-  value* new = env ? env[AR_BKPTR].p : NULL;
+  value* new = env ? env[AR_BKPTR(0)].p : NULL;
   if (env){
     x->i = pack(getcode(old, heap0_old), new, heap0);
   }
@@ -221,7 +222,6 @@ void gc_redirect_heap() {
 
   value* p = scratch;
   while (p < scratch_end) {
-    p[AR_MARK].i = 0;
     redirect(&p[AR_SLINK]);
 
     for (int i = 0, n = vars(p); i < n; i++) {
@@ -237,19 +237,23 @@ void gc_move_space(){
 
   // go through all of the heap and copy active parts to scratch
   while (heappointer < heap_end) {
+    int n = size(heappointer);
     // if pointer is still accessible
-    if (heappointer[AR_MARK].i) {
+    if (heappointer[AR_MARK(scratch_old-heap)].i) {
       // move into scratch
       // printf("Copying %d bytes %02x -> %02x\n", size(heappointer), heappointer - heap0, scratchpointer -heap0);
-      for (int i = 0; i < size(heappointer); i++) {
+      for (int i = 0; i < n; i++) {
         // if (heappointer - heap0 == 0x40 && scratchpointer - heap0 == 0x3e && i==4) gc_dump();
         scratchpointer[i].i = heappointer[i].i;
       }
       // store new location
-      heappointer[AR_BKPTR].p = scratchpointer;
-      scratchpointer += size(heappointer);
+      heappointer[AR_BKPTR(0)].p = scratchpointer;
+      // set the word in the old half corresponding to this new record's 
+      // counter to 0
+      scratchpointer[AR_MARK(heap-scratch_old)].i = 0;
+      scratchpointer += n;
     }
-    heappointer += size(heappointer);
+    heappointer += n;
   }
   scratch_end = scratchpointer;
   heap_end = heappointer;
@@ -264,10 +268,14 @@ void gc_collect(value* fp) {
   if (total_words * 4 / 3 > heap_size / 2){
     // over 75% used, double
     heap_size *= 2;
+    // still need this as a reference for packed pointers
     heap0_old = heap0;
+    // still need this as our markers are in here
+    scratch_old = scratch;
     heap0 = (value*) calloc(4, heap_size);
+    if (heap0 == NULL) panic("Out of memory");
     memset((uchar*) heap0, 0, 4*heap_size);
-    scratch = scratch_end = heap0;
+    scratch = heap0;
   }
 
   // gc_dump();
@@ -286,22 +294,21 @@ void gc_collect(value* fp) {
     heap0_old = heap0;
     heap = scratch;
     heap_end = scratch_end;
-    scratch = scratch_end = heap + heap_size / 2;
+    scratch = scratch_end = scratch_old = heap + heap_size / 2;
   } else {
     value* t = heap;
     heap = scratch;
     heap_end = scratch_end;
-    scratch = scratch_end = t;
+    scratch = scratch_old = scratch_end = t;
   }
 
   // gc_dump();
-  // printf("DONE COLLECTING\n");
 }
 
 
 value* make_env(value* fp) {
   value* env = alloc(AR_HEAD+(fp[CP].p)[CP_FRAME].i, fp);
-  env[AR_MARK].i = 0;
+  env[AR_MARK(scratch-heap)].i = 0;
   env[AR_CODE].p = fp[CP].p;
   env[AR_SLINK].p = fp[HEAD].p;
   return env;
