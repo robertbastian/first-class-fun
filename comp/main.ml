@@ -25,7 +25,9 @@ let main () =
           [fStr tok] !Lexer.lineno;
         exit 1 in
 
-  if !dflag then Tree.print_tree stdout prog;
+  Check.lambda_lift prog;
+
+  (* if !dflag then *) Tree.print_tree stderr prog;
 
   begin try Check.annotate prog with
       Check.Semantic_error (fmt, args, line) ->

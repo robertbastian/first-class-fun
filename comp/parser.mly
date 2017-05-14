@@ -37,7 +37,7 @@ proc_decls :
   | proc_decl proc_decls                { $1::$2 } ;
 
 proc_decl :
-    PROC name formals COLON typ SEMI block SEMI   { Proc ($2, $3, $7, $5) } ;
+    PROC name formals COLON typ SEMI block SEMI   { makeProc (Proc ($2, $3, $7, $5)) } ;
 
 typ :
     BOOL                                { BoolType }

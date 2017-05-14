@@ -32,7 +32,7 @@ type def =
 
 and def_kind =
     VarDef                      (* Variable *)
-  | ProcDef of def list * int * int * int (* Procedure *)
+  | ProcDef                     (* Procedure *)
 
 let find_def x ds =
   let rec search =
@@ -61,18 +61,6 @@ let empty = Env ([], IdMap.empty)
 
 (* |new_block| -- add new block *)
 let new_block (Env (b, m)) = Env ([], m)
-
-module IdSet = Set.Make(struct type t = (ident * typ)  let compare = compare end)
-
-type varset = IdSet.t
-
-let empty_set = IdSet.empty
-
-let union = List.fold_left IdSet.union empty_set
-
-let singleton = IdSet.singleton
-
-let to_list = IdSet.elements
 
 let lib_procs = [
   ("print", FunType([NumType], UnitType), "Lib.Print");

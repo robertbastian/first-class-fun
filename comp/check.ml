@@ -31,7 +31,7 @@ let rec check_expr env =
   function
       Number n -> NumType
     | Bool b -> BoolType
-    | Variable x -> 
+    | Variable x | Partial(x,_) -> 
         let d = lookup_def env x in d.d_type
     | Monop (w, e1) ->
         let t = check_expr env e1 in begin
@@ -91,7 +91,7 @@ let rec check_stmt rtype env =
         let d = lookup_def env x in
         let a = check_expr env e and t = d.d_type in
         begin match d.d_kind with
-          ProcDef(_,_,_,_) ->
+          ProcDef ->
             sem_error "procedure definition $ not assignable" [fStr x.x_name]
         | VarDef when a <> t ->
             sem_error "expected expression of type $, found type $" [fType t; fType a]
@@ -124,34 +124,6 @@ let serialize xs =
         [] -> []
       | x :: xs -> (i, x) :: count (i+1) xs in
   count 0 xs
-
-let rec captured_vars_e env =
-  function
-   | Variable x -> begin try let d = lookup x.x_name env in match d.d_kind with
-      ProcDef _ -> empty_set | VarDef ->
-      if d.d_level == 0 then empty_set else singleton (x.x_name, d.d_type)
-      with Not_found -> empty_set end
-   | Monop (w, e1) -> captured_vars_e env e1
-   | Binop (w, e1, e2) -> union [captured_vars_e env e1; captured_vars_e env e2]
-   | Call (e, args,_) -> union (List.map (captured_vars_e env) (e::args))
-   | _ -> empty_set
-
-let rec captured_vars_s env =
-  function
-  | Seq ss -> union (List.map (captured_vars_s env) ss)
-  | Assign (x, e) ->
-      let capt = captured_vars_e env e in
-      begin try let d = lookup x.x_name env in
-      if d.d_level > 0 then sem_error "assigning to variable $ in enclosing scope" [fStr x.x_name]
-      else capt
-      with Not_found -> capt end
-  | Return e -> captured_vars_e env e
-  | IfStmt (test, thenpt, elsept) -> union
-    [captured_vars_e env test; captured_vars_s env thenpt; captured_vars_s env elsept]
-  | WhileStmt (test, body) -> union
-    [captured_vars_e env test; captured_vars_s env body]
-  | Side e -> captured_vars_e env e
-  | _ -> empty_set
 
 let is_packed_closure =
   function
@@ -202,30 +174,29 @@ let declare_global env (x, t) =
   add_def d env
 
 let declare_libs env (x, t, l) =
-  let d = {d_tag = x; d_kind = ProcDef([],0,0,0) ; d_type = t; d_level = 0;
+  let d = {d_tag = x; d_kind = ProcDef; d_type = t; d_level = 0;
                 d_lab = l; d_off = 0} in
   add_def d env
 
 (* |declare_proc| -- declare a procedure *)
-let declare_proc lev env (Proc (p, formals, body, rtype)) =
+let declare_proc lev env p_ = match p_.p_guts with 
+  Proc (p, formals, Block (vars, procs, body), rtype) ->
   let lab = sprintf "$_$" [fStr p.x_name; fNum (label ())] in
-  let d = { d_tag = p.x_name; 
-                d_kind = ProcDef ([], 0, 0, 0);
+  let d = { d_tag = p.x_name; d_kind = ProcDef;
                 d_type = FunType((List.map snd formals), rtype);
                 d_level = lev; d_lab = lab; d_off = 0 } in
   p.x_def <- Some d; add_def d env
 
-let finalise_proc_def p env formals vars capts =
-  (lookup_def env p).d_kind <- ProcDef (List.map (fun (x,t) -> lookup x env) capts,
-                                        make_ref_map formals,
-                                        make_ref_map vars,
-                                        make_ref_map capts)
-
 (* |check_proc| -- check a procedure body *)
-let rec check_proc lev env (Proc (p, formals, Block (vars, procs, body), rtype)) =
-  err_line := p.x_line;
-  let capts = to_list (captured_vars_s env body) in
-  finalise_proc_def p env formals vars capts;
+let rec check_proc lev env p =
+  match p.p_guts with Proc (x, formals, Block (vars, procs, body), rtype) ->
+  err_line := x.x_line;
+  let capts = List.map (fun x -> (x.x_name, (lookup_def env x).d_type)) 
+    (to_list p.p_capts) in
+  p.p_amap <- make_ref_map formals;
+  p.p_lmap <- make_ref_map vars;
+  p.p_cmap <- make_ref_map capts;
+  fgrindf stderr "" "Proc $ capts $\n" [fStr x.x_name; fList(fDecl) capts];
   let env' = 
     List.fold_left (declare_arg lev) (new_block env) (serialize (capts@formals)) in
   let env'' = 
@@ -242,3 +213,99 @@ let annotate (Program (Block (vars, procs, body))) =
   let env'' = List.fold_left declare_libs env' lib_procs in
   List.iter (check_proc 1 env'') procs;
   check_stmt None env'' body
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+let rec captured_vars_e visible =
+  function
+   | Variable x -> if contains visible x then empty_set else singleton x 
+   | Monop (w, e1) -> captured_vars_e visible e1
+   | Binop (w, e1, e2) -> union [captured_vars_e visible e1; captured_vars_e visible e2]
+   | Call (e, args,_) -> union (List.map (captured_vars_e visible) (e::args))
+   | _ -> empty_set
+
+let rec captured_vars_s visible =
+  function
+  | Seq ss -> union (List.map (captured_vars_s visible) ss)
+  | Assign (x, e) ->
+      if not (contains visible x) then sem_error "assigning to variable $ in enclosing scope" [fStr x.x_name]
+      else captured_vars_e visible e
+  | Return e -> captured_vars_e visible e
+  | IfStmt (test, thenpt, elsept) -> union
+    [captured_vars_e visible test; captured_vars_s visible thenpt; captured_vars_s visible elsept]
+  | WhileStmt (test, body) -> union
+    [captured_vars_e visible test; captured_vars_s visible body]
+  | Side e -> captured_vars_e visible e
+  | _ -> empty_set
+
+let visible glovs p = match p.p_guts with (Proc (n, formals, Block (vars, procs, body), _)) ->
+  union [from_lists [[n]; glovs; List.map (fun (x,t) -> makeName x (-1)) (formals@vars);
+      List.map (fun q -> match q.p_guts with Proc(m, _, _ ,_) -> m) procs;]; 
+      p.p_capts];
+
+let rec annotate_captured glovs p = 
+  match p.p_guts with (Proc (n, formals, Block (vars, procs, body), _)) ->
+  p.p_capts <- captured_vars_s (visible glovs p) body;
+  p.p_lifted <- List.length (to_list p.p_capts) == 0;
+  List.iter (annotate_captured glovs) procs;
+
+let rec add_extra_args_e p extra x = 
+  function 
+      Variable(y) | Partial(y, _) when y.x_name == x.x_name -> 
+      let need_more_capts = not (subset extra (visible [] p)) in
+      if need_more_capts then (p.p_lifted <- false; p.p_capts <- union [p.p_capts; from_lists [extra]]);
+      Partial (y, extra)
+    | Monop(w, e) -> Monop (w, add_extra_args_e p extra x e)
+    | Binop(w, e1, e2) -> Binop (w, add_extra_args_e p extra x e1, add_extra_args_e p extra x e2) 
+    | Call(e, a, c) -> Call(add_extra_args_e p extra x e, List.map (add_extra_args_e p extra x) a, c)
+    | e -> e
+  
+let rec add_extra_args_s p extra x = 
+  function
+      Seq ss -> Seq (List.map (add_extra_args_s p extra x) ss)
+    | Assign (x, e) -> Assign(x, add_extra_args_e p extra x e)
+    | Return e -> Return (add_extra_args_e p extra x e)
+    | IfStmt (test, thenpt, elsept) -> IfStmt (
+      add_extra_args_e p extra x test, add_extra_args_s p extra x thenpt, add_extra_args_s p extra x elsept)
+    | WhileStmt (test, body) -> WhileStmt (
+      add_extra_args_e p extra x test, add_extra_args_s p extra x body)
+    | Side e -> Side (add_extra_args_e p extra x e)
+    | s -> s
+
+let rec add_extra_args_p extra x p = 
+  let Proc (n, f, (Block (vars, procs, body)), r) = p.p_guts in (
+  p.p_guts <- Proc (n, f, (Block (vars, procs, add_extra_args_s p extra x body)), r))
+
+and lift siblings parent p = 
+  if not p.p_lifted then (
+    let Proc (n, formals, body, rtype) = p.p_guts in
+    List.map (add_extra_args_p (to_list p.p_capts) n) (parent@siblings)
+  )
+
+and do_lifts procs parent = List.exists (fun x->x) (List.map (lift procs parent) procs) 
+
+let lambda_lift (Program (Block (vars, procs, body))) = 
+  List.iter (annotate_captured (List.map (fun (x,t) -> makeName x (-1)) vars)) procs;
+  do_lifts procs []; ()

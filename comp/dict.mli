@@ -23,7 +23,7 @@ type def =
 
 and def_kind =
     VarDef                      (* Variable *)
-  | ProcDef of def list * int * int * int (* Procedure *)
+  | ProcDef                     (* Procedure *)
 
 type environment
 
@@ -38,15 +38,5 @@ val new_block : environment -> environment
 
 (* |empty| -- initial empty environment *)
 val empty : environment
-
-type varset
-
-val empty_set : varset
-
-val union : varset list -> varset
-
-val singleton : (ident * typ) -> varset
-
-val to_list : varset -> (ident * typ) list
 
 val lib_procs : (ident * typ * string) list

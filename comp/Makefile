@@ -48,7 +48,7 @@ depend : $(ML) force
 	ocamlc -c $(INCLUDE) $<
 
 %.cmo : %.ml
-	ocamlc -c $(INCLUDE) $<
+	ocamlc -c  -verbose $(INCLUDE) $<
 
 force:
 

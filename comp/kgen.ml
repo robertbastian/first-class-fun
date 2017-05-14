@@ -34,9 +34,7 @@ let rec gen_expr =
           match d.d_kind with
               VarDef ->
                 SEQ [LINE x.x_line; gen_ldst d true]
-            | ProcDef (capts,_,_,_)->
-                let cvals = List.map (fun d -> gen_ldst d true) capts in
-                SEQ [LINE x.x_line; SEQ (List.rev cvals); GLOBAL d.d_lab; PACK]
+            | ProcDef -> SEQ [LINE x.x_line; GLOBAL d.d_lab; PACK]
         end
     | Number x ->
         CONST x
@@ -45,6 +43,15 @@ let rec gen_expr =
         SEQ [gen_expr e1; MONOP w]
     | Binop (w, e1, e2) ->
         SEQ [gen_expr e1; gen_expr e2; BINOP w]
+    | Partial (x, args) ->
+        let d = get_def x in
+        begin
+          match d.d_kind with
+              ProcDef ->
+                let vals = List.map (fun x -> gen_ldst (get_def x) true) args in
+                SEQ [LINE x.x_line; SEQ (List.rev vals); GLOBAL d.d_lab; PACK]
+            | _ -> failwith "cannot apply partially apply variable"
+        end
     | Call (e, args, c) ->
         let call = begin match c.c_returns with 
             Some(UnitType) -> PCALL (List.length args)
@@ -101,15 +108,15 @@ let rec gen_stmt =
         SEQ [gen_expr e; RETURNW]
 
 (* |gen_proc| -- generate code for a procedure *)
-let rec gen_proc (Proc (p, formals, Block (vars, procs, body), rtype)) =
+let rec gen_proc p_ = match p_.p_guts with
+  Proc (p, formals, Block (vars, procs, body), rtype) ->
   let d = get_def p in
   level := d.d_level;
   let code = gen_stmt body in 
-  let ProcDef (capts, amap, lmap, cmap) = d.d_kind in
   printf "PROC $ $ $ $ $ $ $\n" [fStr d.d_lab; 
-    fNum (List.length formals); fNum amap; 
-    fNum (List.length vars); fNum lmap; 
-    fNum (List.length capts); fNum cmap];
+    fNum (List.length formals); fNum p_.p_amap; 
+    fNum (List.length vars); fNum p_.p_lmap; 
+    fNum (List.length (to_list (p_.p_capts))); fNum p_.p_cmap];
   Keiko.output (if !optflag then Peepopt.optimise code else code);
   printf "$" [fStr (match rtype with UnitType -> "RETURN\n" | _ -> "ERROR E_RETURN 0\n")];
   printf "END\n\n" [];
