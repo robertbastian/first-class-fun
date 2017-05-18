@@ -140,17 +140,16 @@ let make_ref_map formals vars =
 (*
 Frame layout
 
-fp+12:  closure link   --->     env: <internal>
-fp+8:   current cp              env+4: static link
-fp+4:   return addr             env+8: arg 1
-fp:     dynamic link                   ...
-                                       arg n
+fp+12:  closure link   --->     env: static link
+fp+8:   current cp              env+4: arg 1
+fp+4:   return addr             env+8: ...
+fp:     dynamic link                   arg n
                                        local 1
                                        ...
                                        local m
 *)
 
-let arg_base = 8
+let arg_base = 4
 
 (* |declare_arg| -- declare a formal parameter or local variable *)
 let declare_arg_loc lev env (i, (x,t)) =

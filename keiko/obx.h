@@ -205,7 +205,7 @@ void long_ext(value *sp);
 int pack(value *code, value *env, value* heap);
 value *getcode(int word, value* heap);
 value *getenvt(int word, value* heap);
-int might_be_packed(int word, value* heap);
+int might_be_packed(int word, value* heap, int o);
 void pack_closure(value *sp);
 void unpack_closure(value *sp);
 #endif

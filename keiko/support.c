@@ -242,13 +242,13 @@ value *getenvt(int word, value* heap) {
 }
 
 
-int might_be_packed(int word, value* heap) {
+int might_be_packed(int word, value* heap, int o) {
      if (word >> 24 >= nclo) return FALSE;
      value* env = getenvt(word, heap);
      return (env != NULL && 
              (env >= heap && env < heap + heap_size) &&
              (unsigned) env % 4 == 0 &&
-             env[AR_CODE].i != 0);
+             env[AR_CODE(o)].i != 0);
 }
      
 void pack_closure(value *sp) {
