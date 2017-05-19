@@ -204,7 +204,7 @@ proc find_symbol(value *p, proc *table, int nelem) {
 #ifdef SPECIALS
 /* Specials for the compiler course */
 
-value *clotab[256];
+value *clotab[16];
 int nclo = 0;
 
 int pack(value *code, value *env, value* heap) {
@@ -214,7 +214,7 @@ int pack(value *code, value *env, value* heap) {
           if (clotab[tag] == code) break;
 
      if (tag == nclo) {
-          if (nclo == 256) panic("Out of closure tags");
+          if (nclo == 16) panic("Out of closure tags");
           clotab[nclo++] = code;
      }
 
@@ -222,23 +222,19 @@ int pack(value *code, value *env, value* heap) {
           panic("Bad luck in pack");
      }
 
-     if (env != NULL && heap_size > 0xffffff){
-          panic("Very bad luck in pack");
-     }
+     val = env == NULL ? 0 : (~(env - heap) & 0xfffffff);
 
-     val = env == NULL ? 0 : (~(env - heap) & 0xffffff);
-
-     return (tag << 24) | val;
+     return (tag << 28) | val;
 }
 
 value *getcode(int word, value* heap) {
-     unsigned tag = ((unsigned) word) >> 24;
+     unsigned tag = ((unsigned) word) >> 28;
      return clotab[tag];
 }
 
 value *getenvt(int word, value* heap) {
-     unsigned val = ((unsigned) word) & 0xffffff;
-     return (val == 0 ? NULL : heap + ((~val) & 0xffffff));
+     unsigned val = ((unsigned) word) & 0xfffffff;
+     return (val == 0 ? NULL : heap + ((~val) & 0xfffffff));
 }
 
 
@@ -247,7 +243,7 @@ int might_be_packed(int word, value* heap, int o) {
      value* env = getenvt(word, heap);
      return (env != NULL && 
              (env >= heap && env < heap + heap_size) &&
-             (unsigned) env % 4 == 0 &&
+             (unsigned) env % 8 == 0 &&
              env[AR_CODE(o)].i != 0);
 }
      
